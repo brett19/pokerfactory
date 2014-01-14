@@ -1,0 +1,10 @@
+{
+  "name": "pokergame",
+  "version": "0.0.1",
+  "main": "server.js",
+  "dependencies": {
+    "primus": "~1.5.2",
+    "express": "~3.4.7",
+    "engine.io": "~0.8.0"
+  }
+}
