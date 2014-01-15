@@ -60,6 +60,10 @@ primus.on('connection', function (spark) {
       table.playerRaise(myPos, info.amount);
     } else if (cmd === 'act_standup') {
       table.standPlayer(myPos);
+    } else if (cmd === 'act_sitout') {
+      table.sitoutPlayer(myPos, true);
+    } else if (cmd === 'act_sitin') {
+      table.sitoutPlayer(myPos, false);
     }
   });
 });
@@ -82,6 +86,22 @@ table.on('player_sat', function(pos) {
 table.on('player_stood', function(pos) {
   allListeners(function(spark) {
     spark.write(['player_stood', {
+      pos: pos
+    }]);
+  });
+});
+
+table.on('player_satin', function(pos) {
+  allListeners(function(spark) {
+    spark.write(['player_satin', {
+      pos: pos
+    }]);
+  });
+});
+
+table.on('player_satout', function(pos) {
+  allListeners(function(spark) {
+    spark.write(['player_satout', {
       pos: pos
     }]);
   });
@@ -159,11 +179,12 @@ table.on('dealer_moved', function(pos) {
   });
 });
 
-table.on('action_moved', function(pos, opts) {
+table.on('action_moved', function(pos, timer, opts) {
   allListeners(function(spark) {
     var isMe = table.getUuidPos(spark.uuid) === pos;
     spark.write(['set_action', {
       pos: pos,
+      timer: timer,
       opts: isMe ? opts : null
     }]);
   });

@@ -397,6 +397,10 @@ function PokerTable(uuid, name)
   this.lastOptionPos = -1;
   this.pots = [];
 
+  this.actionTimer = null;
+  this.actionTimerEnd = 0;
+  this.actionTimerLen = 0;
+
   // Set up the seats
   for (var i = 0; i < this.maxPlayers; ++i) {
     this.players[i] = null;
@@ -455,16 +459,42 @@ PokerTable.prototype.standPlayer = function(idx) {
   return true;
 };
 
+PokerTable.prototype.sitoutPlayer = function(idx, sitout) {
+  if (!this.players[idx]) {
+    return false;
+  }
+
+  var player = this.players[idx];
+
+  if (sitout && player.sittingOut) {
+    console.warn('sitout failed - already sat out');
+    return false;
+  }
+  if (!sitout && !player.sittingOut) {
+    console.warn('sitin failed - already sitting in');
+    return false;
+  }
+
+  player.sittingOut = sitout;
+
+  if (player.sittingOut) {
+    this.emit('player_satout', idx);
+  } else {
+    this.emit('player_satin', idx);
+    this.tryBeginHand();
+  }
+};
+
 PokerTable.prototype.playerCanPlay = function(idx) {
   if (!this.players[idx]) {
     return false;
   }
 
-  if (this.players[idx].balance < 40) {
+  if (this.players[idx].sittingOut) {
     return false;
   }
 
-  if (this.players[idx].sittingOut) {
+  if (this.players[idx].balance <= 0) {
     return false;
   }
 
@@ -539,6 +569,15 @@ PokerTable.prototype.actionOpts = function() {
 };
 
 PokerTable.prototype.advanceAction = function(madeAction) {
+  this.sitoutLowBal();
+
+  if (this.actionTimer) {
+    clearTimeout(this.actionTimer);
+    this.actionTimer = null;
+    this.actionTimerLen = 0;
+    this.actionTimerEnd = 0;
+  }
+
   if (madeAction) {
     this.lastActionPos = this.actionPos;
     this.lastOptionPos = -1;
@@ -583,8 +622,33 @@ PokerTable.prototype.advanceAction = function(madeAction) {
     }
   }
 
+  this.actionTimerLen = 6000;
+  this.actionTimerEnd = Date.now() + this.actionTimerLen;
+
+  var actionPos = this.actionPos;
+  this.actionTimer = setTimeout(function() {
+    this.mainTimerTrip(actionPos);
+  }.bind(this), this.actionTimerLen);
+
   var actionOpts = this.actionOpts();
-  this.emit('action_moved', this.actionPos, actionOpts);
+  this.emit('action_moved', actionPos, this.actionTimerLen, actionOpts);
+};
+
+PokerTable.prototype.mainTimerTrip = function(idx) {
+  if (idx !== this.actionPos) {
+    console.warn('timer tripped on non-action player');
+    return;
+  }
+
+  var actionOpts = this.actionOpts();
+  if (actionOpts.check) {
+    this.playerCheck(idx);
+  } else {
+    this.playerFold(idx);
+
+    // Try to sitout this player
+    this.sitoutPlayer(idx, true);
+  }
 };
 
 PokerTable.prototype.advanceDealer = function() {
@@ -612,7 +676,7 @@ PokerTable.prototype.playerAddPot = function(idx, amount) {
   var player = this.players[idx];
 
   if (player.balance < amount) {
-    // Need to do side-pot!  Eek
+    amount = player.balance;
   }
 
   player.balance -= amount;
@@ -860,16 +924,21 @@ PokerTable.prototype.collectBets = function() {
   }
 };
 
-PokerTable.prototype.continuePlay = function() {
-  console.info('continue play');
-  // If there are no valid moves, just advance play.
-  var actionables = 0;
+PokerTable.prototype.playersWithOptions = function() {
+  var count = 0;
   for (var i = 0; i < this.players.length; ++i) {
     if (this.playerCanAction(i)) {
-      actionables++;
+      count++;
     }
   }
-  if (actionables <= 1) {
+  return count;
+};
+
+PokerTable.prototype.continuePlay = function() {
+  console.info('continue play');
+
+  // If there are no valid moves, just advance play.
+  if (this.playersWithOptions() <= 1) {
     console.info('no actioners - advance play');
     this.advancePlay();
     return;
@@ -884,6 +953,16 @@ PokerTable.prototype.continuePlay = function() {
   this.lastOptionPos = this.dealerPos;
 };
 
+PokerTable.prototype.sitoutLowBal = function() {
+  for (var i = 0; i < this.players.length; ++i) {
+    if (this.players[i]) {
+      if (this.players[i].balance === 0 && !this.players[i].inHand) {
+        this.sitoutPlayer(i, true);
+      }
+    }
+  }
+};
+
 PokerTable.prototype.advancePlay = function() {
   // Nobody can action right now.
   this.actionPos = -1;
@@ -892,14 +971,8 @@ PokerTable.prototype.advancePlay = function() {
   console.info('advance play');
 
   // If there are no valid moves, just advance play.
-  var actionables = 0;
-  for (var i = 0; i < this.players.length; ++i) {
-    if (this.playerCanAction(i)) {
-      actionables++;
-    }
-  }
-  if (actionables <= 1) {
-    console.info('no actionables - showdown');
+  if (this.playersWithOptions() <= 1 && this.playersInHand() > 1) {
+    console.info('no players with options - showdown');
     this.doShowdown();
   }
 
@@ -1001,7 +1074,9 @@ PokerTable.prototype.doShowdown = function() {
 };
 
 PokerTable.prototype.completePlay = function() {
-  this.doShowdown();
+  if (this.playersInHand() > 1) {
+    this.doShowdown();
+  }
 
   for (var i = 0; i < this.pots.length; ++i) {
     this.resolvePot(i);
@@ -1014,6 +1089,8 @@ PokerTable.prototype.completePlay = function() {
       this.players[i].inHand = false;
     }
   }
+
+  this.sitoutLowBal();
 
   setTimeout(function() {
     this.resetHand();
@@ -1087,6 +1164,7 @@ PokerTable.prototype.playerInfo = function(uuid, idx) {
     balance: player.balance,
     handBet: player.handBet,
     hand: playerHand,
+    sittingOut: player.sittingOut,
     myself: uuid === player.uuid
   };
 };
@@ -1120,6 +1198,8 @@ PokerTable.prototype.info = function(uuid) {
     maxPlayers: this.maxPlayers,
     dealerPos: this.dealerPos,
     actionPos: this.actionPos,
+    actionTimer: this.actionTimerEnd - Date.now(),
+    actionTimerLen: this.actionTimerLen,
     community: this.community,
     pots: this.potInfos(),
     players: this.playerInfos(uuid),

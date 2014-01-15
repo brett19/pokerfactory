@@ -3,7 +3,8 @@ var stage = null;
 var data = {
   images: ['imgs/cards.png'],
   frames: {width:60, height:86},
-  framerate: 0
+  framerate: 0,
+  snapToPixel: true
 };
 var cardSheet = new createjs.SpriteSheet(data);
 var cardSpriteIdx = [
@@ -42,7 +43,7 @@ function PlayerPanel(pos, x, y) {
   this.info = null;
   this.used = false;
   this.balance = 0;
-  this.isMyself = false;
+  this.sittingOut = false;
 
   var panel = new createjs.Container();
   panel.x = x;
@@ -97,7 +98,36 @@ function PlayerPanel(pos, x, y) {
   usedPanel.addChild(textb);
   this.playerBalance = textb;
 
+  var timer = new createjs.Shape();
+  usedPanel.addChild(timer);
+  this.timerShape = timer;
+
+  this.myTimer = null;
+  this.timerStart = 0;
+  this.timerLen = 0;
+
   this.handCards = [];
+}
+
+var myPos = -1;
+function setMyPosition(pos) {
+  console.log('my position - ', pos);
+  myPos = pos;
+
+  if (myPos === -1) {
+    $('#xact_form').hide();
+  } else {
+    $('#xact_form').show();
+
+    var myPanel = playerPanels[myPos];
+    if (myPanel.sittingOut) {
+      $('#sitout').attr('disabled', true);
+      $('#sitin').attr('disabled', false);
+    } else {
+      $('#sitout').attr('disabled', false);
+      $('#sitin').attr('disabled', true);
+    }
+  }
 }
 
 PlayerPanel.prototype.remove = function() {
@@ -109,10 +139,18 @@ PlayerPanel.prototype.reset = function() {
 };
 
 PlayerPanel.prototype.setInfo = function(info) {
+  if (info && info.myself) {
+    setMyPosition(this.pos);
+  }
+  if (!info && this.isMyself) {
+    setMyPosition(-1);
+  }
+
   if (info) {
     this.isMyself = info.myself;
 
     this.setName(info.name);
+    this.setSittingOut(info.sittingOut);
     this.setCards(info.hand);
     this.setBalance(info.balance);
 
@@ -120,10 +158,53 @@ PlayerPanel.prototype.setInfo = function(info) {
     this.emptyPanel.visible = false;
     this.usedPanel.visible = true;
   } else {
+    this.isMyself = false;
     this.used = false;
     this.emptyPanel.visible = true;
     this.usedPanel.visible = false;
   }
+};
+
+PlayerPanel.prototype.updateTimer = function() {
+  var elapsed = Date.now() - this.timerStart;
+  if (elapsed >= this.timerLen) {
+    elapsed = this.timerLen;
+  }
+
+  var perc = elapsed / this.timerLen;
+
+  var widthperc = 1 - perc;
+  var colorx = Math.floor(512 * perc) - 127;
+  if (colorx < 0) colorx = 0;
+  if (colorx > 255) colorx = 255;
+
+  var gfx = this.timerShape.graphics;
+  gfx.clear();
+  gfx.beginFill('rgba('+colorx+','+(255-colorx)+',0,1.0)');
+  gfx.drawRoundRect(8, 136, 240 * widthperc, 4, 2);
+};
+
+PlayerPanel.prototype.clearTimer = function() {
+  if (this.myTimer) {
+    clearInterval(this.myTimer);
+    this.myTimer = null;
+  }
+
+  this.timerShape.graphics.clear();
+};
+
+PlayerPanel.prototype.startTimer = function(ms, timerLen) {
+  this.clearTimer();
+
+  console.log('starttime', ms, timerLen);
+
+  this.timerStart = Date.now() - timerLen + ms;
+  this.timerLen = timerLen;
+
+  this.updateTimer();
+  this.myTimer = setInterval(function() {
+    this.updateTimer();
+  }.bind(this), 100);
 };
 
 PlayerPanel.prototype.setName = function(name) {
@@ -132,9 +213,12 @@ PlayerPanel.prototype.setName = function(name) {
 
 PlayerPanel.prototype.setBalance = function(balance) {
   this.balance = balance;
-  this.playerBalance.text = '$' + balance;
 
-  if (balance > 0 || this.handCards.length === 0) {
+  if (this.sittingOut && this.handCards.length === 0) {
+    this.playerBalance.text = 'SITTING OUT';
+    this.playerBalance.color = '#888888';
+  } else if (balance > 0 || this.handCards.length === 0) {
+    this.playerBalance.text = '$' + balance;
     this.playerBalance.color = '#ffffff';
   } else {
     this.playerBalance.text = 'ALL-IN';
@@ -178,17 +262,33 @@ PlayerPanel.prototype.setActionOnMe = function(isit) {
   if (isit) {
     this.panelHi.visible = true;
   } else {
+    //this.clearTimer();
     this.panelHi.visible = false;
   }
+};
+
+PlayerPanel.prototype.setSittingOut = function(sitout) {
+  this.sittingOut = sitout;
+
+  // Update balance text substitutions
+  this.addBalance(0);
+
+  // Update xact form stuff
+  setMyPosition(myPos);
 };
 
 function sitDownAt(pos) {
   primus.write(['sit_down', {pos: pos}]);
 }
 
-function setActionPos(pos, opts) {
+function setActionPos(pos, timer, timerLen, opts) {
   for (var i = 0; i < maxPlayers; ++i) {
     playerPanels[i].setActionOnMe(i === pos);
+    playerPanels[i].clearTimer();
+  }
+
+  if (pos !== -1) {
+    playerPanels[pos].startTimer(timer, timerLen);
   }
 
   if (opts) {
@@ -242,6 +342,13 @@ function actPlayerRaise() {
 
 function actPlayerStandUp() {
   primus.write(['act_standup', {}]);
+}
+
+function actPlayerSitIn() {
+  primus.write(['act_sitin', {}]);
+}
+function actPlayerSitOut() {
+  primus.write(['act_sitout', {}]);
 }
 
 var betPos = [
@@ -449,24 +556,30 @@ function startGame(info) {
     throw new Error('invalid max players');
   }
 
+  // Create all the panels
+  for (var i = 0; i < maxPlayers; ++i) {
+    var thisPos = playerPanelPos[maxPlayers][i];
+    var panel = new PlayerPanel(i, thisPos.x, thisPos.y);
+    playerPanels.push(panel);
+    playerBets.push(null);
+  }
+
   setPots(info.pots);
   setCommCards(info.community);
 
   for (var i = 0; i < maxPlayers; ++i) {
-    var thisPos = playerPanelPos[maxPlayers][i];
-    var panel = new PlayerPanel(i, thisPos.x, thisPos.y);
+    var panel = playerPanels[i];
+
     panel.setInfo(info.players[i]);
     if (info.players[i]) {
       setPlayerBet(i, info.players[i].handBet);
     } else {
       setPlayerBet(i, 0);
     }
-    playerPanels.push(panel);
-    playerBets.push(null);
   }
 
   setDealerPos(info.dealerPos);
-  setActionPos(info.actionPos, info.actionOpts);
+  setActionPos(info.actionPos, info.actionTimer, info.actionTimerLen, info.actionOpts);
 }
 
 var primus = new Primus('/');
@@ -496,7 +609,7 @@ primus.on('data', function(data) {
   } else if(cmd === 'set_dealer') {
     setDealerPos(info.pos);
   } else if(cmd === 'set_action') {
-    setActionPos(info.pos, info.opts);
+    setActionPos(info.pos, info.timer, info.timer, info.opts);
   } else if(cmd === 'community_deal_card') {
     dealCommCard(info.card);
   } else if (cmd === 'player_to_pot') {
@@ -509,6 +622,10 @@ primus.on('data', function(data) {
     playerPanels[info.pos].setCards(info.hand);
   } else if (cmd === 'player_stood') {
     playerPanels[info.pos].setInfo(null);
+  } else if (cmd === 'player_satin') {
+    playerPanels[info.pos].setSittingOut(false);
+  } else if (cmd === 'player_satout') {
+    playerPanels[info.pos].setSittingOut(true);
   }
 
 });
@@ -521,27 +638,30 @@ function initGame() {
   for (var i = 0; i < 5; ++i) {
     dealCommCard(5 + i);
   }
-  */
+  //*/
 
   /* Card Tiles
   for (var i = 0; i < 52; ++i) {
     var card = cardSprite(i);
-    card.x = 550 + cardNum(i) * (60+5);
-    card.y = 360 + cardSuit(i) * (86+5)
+    card.x = 480 + cardNum(i) * (70+5);
+    card.y = 350 + cardSuit(i) * (95+5)
     stage.addChild(card);
   }
-  */
+  //*/
 }
 
 $(document).ready(function(){
   $('#act_form').hide();
+  $('#xact_form').hide();
 
   $('#fold').click(actPlayerFold);
   $('#check').click(actPlayerCheck);
   $('#call').click(actPlayerCall);
   $('#bet').click(actPlayerBet);
   $('#raise').click(actPlayerRaise);
-  $('#standup').click(actPlayerStandUp)
+  $('#standup').click(actPlayerStandUp);
+  $('#sitin').click(actPlayerSitIn);
+  $('#sitout').click(actPlayerSitOut);
 
   stage = new createjs.Stage('gamearea');
   stage.scaleX = 0.5;
