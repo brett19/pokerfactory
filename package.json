@@ -5,6 +5,10 @@
   "dependencies": {
     "primus": "~1.5.2",
     "express": "~3.4.7",
-    "engine.io": "~0.8.0"
+    "engine.io": "~0.8.0",
+    "chance": "~0.5.4",
+    "node-uuid": "~1.4.1",
+    "winston": "~0.7.2",
+    "winston-logio": "~0.2.0"
   }
 }

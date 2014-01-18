@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Poker Game</title>
+    <script src="js/jquery.1.10.2.min.js"></script>
+    <script src="js/createjs-2013.12.12.min.js"></script>
+    <script src="/primus/primus.js"></script>
+    <script src="js/pokergame.js"></script>
+
+    <style type="text/css">
+        body {
+            margin: 0px;
+            padding: 0px;
+            cursor: default;
+        }
+        #actions {
+            position: absolute;
+            left: 1000px;
+            top: 10px;
+        }
+
+        #actions form {
+            border: 1px solid black;
+            padding: 10px;
+            margin: 4px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gamearea" width="991" height="772"></canvas>
+<div id="actions">
+    <form id="act_form">
+        <button id="fold">Fold</button><br />
+        <button id="check">Check</button><br />
+        <button id="call">Call</button><br />
+        <button id="bet">Bet</button> <button id="raise">Raise</button> <input type="text" id="bet_amount" /> <span id="bet_range">($0-$0)</span>
+    </form>
+    <form id="xact_form">
+        <button id="standup">Stand Up</button><br />
+        <button id="sitout">Sit Out</button> <button id="sitin">Sit In</button><br />
+    </form>
+</div>
+</body>
+</html>

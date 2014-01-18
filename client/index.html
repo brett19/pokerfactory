@@ -1,39 +1,66 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Poker Game</title>
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-    <script src="//code.createjs.com/easeljs-0.7.0.min.js"></script>
+    <title>Stag Poker - Lobby</title>
+    <script src="js/optionparser.js"></script>
+    <script src="js/jquery.1.10.2.min.js"></script>
+    <script src="js/createjs-2013.12.12.min.js"></script>
     <script src="/primus/primus.js"></script>
-    <script src="js/pokergame.js"></script>
-
+    <script src="js/connmgr.js"></script>
+    <script src="js/loaderuicontroller.js"></script>
+    <script src="js/preloadmanager.js"></script>
+    <script src="js/lobby.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles/loader.css">
+    <link rel="stylesheet" type="text/css" href="styles/lobby.css">
     <style type="text/css">
-        #actions {
-            position: absolute;
-            left: 1000px;
-            top: 10px;
+        body {
+            margin: 0px;
+            padding: 0px;
         }
 
-        #actions form {
-            border: 1px solid black;
-            padding: 10px;
-            margin: 4px;
+        .tablelist {
+            width: 800px;
+        }
+
+        .tablelist tbody tr {
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-<canvas id="gamearea" width="960" height="540"></canvas>
-<div id="actions">
-    <form id="act_form">
-        <button id="fold">Fold</button><br />
-        <button id="check">Check</button><br />
-        <button id="call">Call</button><br />
-        <button id="bet">Bet</button> <button id="raise">Raise</button> <input type="text" id="bet_amount" /> <span id="bet_range">($0-$0)</span>
-    </form>
-    <form id="xact_form">
-        <button id="standup">Stand Up</button><br />
-        <button id="sitout">Sit Out</button> <button id="sitin">Sit In</button><br />
-    </form>
-</div>
+    <div id="lobby">
+        <h2>Cash Games</h2>
+        <table id="cashgamelist" class="tablelist" border="1">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Stakes</th>
+                    <th>Players</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="login">
+        Username: <input type="text" id="login_username" /><br />
+        Password: <input type="password" id="login_password" /><br />
+        <button id="do_login">Login</button>
+    </div>
+
+    <div id="loading">
+        <div id="loadingWrap">
+            <div id="loadingBlock">
+                <div id="loadingWarn">
+                    <img src="imgs/warning.png" />
+                    <b>Warning:</b> Something happened...
+                </div>
+                <div id="loadingText">Loading Test...</div>
+                <img id="loadingBar" src="imgs/loaderBar.png" />
+                <div id="loadingPerc">0%</div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

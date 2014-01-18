@@ -1,19 +1,24 @@
 'use strict';
 
-var express = require('express');
+var Express = require('express');
 var Primus = require('primus');
-var poker = require('./poker');
+var Poker = require('./poker');
+var Logger = require('./logger');
+var connManager = require('./connmanager')();
 
-var app = express();
+var app = Express();
 
-app.use("/", express.static(__dirname + '/client'));
+app.use("/", Express.static(__dirname + '/client'));
 
 var server = require('http').createServer(app);
 var primus = new Primus(server, {
   transformer: 'engine.io'
 });
 
-var table = new poker.Table('000000', 'Main');
+
+
+
+var table = new Poker.Table('000000', 'Main');
 
 var listeners = [];
 function allListeners(callback) {
@@ -28,26 +33,33 @@ function sendAll(cmd, data) {
 }
 
 function startChips(name) {
+  return 5000;
   return Math.floor(Math.random() * 2000) + 500;
 }
 
 primus.on('connection', function (spark) {
+  spark.nemit = function(cmd, data) {
+    spark.write([cmd, data]);
+  }
+
+  connManager.onConnect(spark);
+
   spark.on('data', function(data) {
     var cmd = data[0];
     var info = data[1];
 
-    var myPos = table.getUuidPos(spark.uuid);
+    var myPos = table.getPosFromUuid(spark.uuid);
 
     if (cmd === 'login') {
       listeners.push(spark);
       spark.uuid = info.name;
       spark.name = info.name;
-      console.log('player_login', spark.name);
+      Logger.info('player_login', spark.name);
       spark.write(['open_table', table.info(spark.uuid)]);
     } else if (cmd === 'sit_down') {
-      console.log('player_sitdown', spark.name);
-      var player = new poker.Player(spark.uuid, spark.name, startChips(spark.name));
-      table.sitPlayer(info.pos, player);
+      Logger.info('player_sitdown', spark.name);
+      var player = new Poker.Player(spark.uuid, spark.name, startChips(spark.name));
+      table.playerSit(info.pos, player);
     } else if (cmd === 'act_fold') {
       table.playerFold(myPos);
     } else if (cmd === 'act_check') {
@@ -59,15 +71,19 @@ primus.on('connection', function (spark) {
     } else if (cmd === 'act_raise') {
       table.playerRaise(myPos, info.amount);
     } else if (cmd === 'act_standup') {
-      table.standPlayer(myPos);
+      table.playerStandUp(myPos);
     } else if (cmd === 'act_sitout') {
-      table.sitoutPlayer(myPos, true);
+      table.playerSitIn(myPos);
     } else if (cmd === 'act_sitin') {
-      table.sitoutPlayer(myPos, false);
+      table.playerSitOut(myPos);
     }
+
+    connManager.dispatch(spark, cmd, info);
   });
 });
 primus.on('disconnection', function (spark) {
+  connManager.onDisconnect(spark);
+
   var lIdx = listeners.indexOf(spark);
   if (lIdx >= 0) {
     listeners.splice(lIdx, 1);
@@ -127,17 +143,27 @@ table.on('pot_to_player', function(pot, pos, amount) {
   });
 });
 
-table.on('community_dealt_card', function(card) {
+table.on('dealt_flop', function(card) {
   allListeners(function(spark) {
-    spark.write(['community_deal_card', {
-      card: card
-    }]);
+    spark.write(['community_deal_card', {card: table.communityCards[0]}]);
+    spark.write(['community_deal_card', {card: table.communityCards[1]}]);
+    spark.write(['community_deal_card', {card: table.communityCards[2]}]);
+  });
+});
+table.on('dealt_turn', function(card) {
+  allListeners(function(spark) {
+    spark.write(['community_deal_card', {card: table.communityCards[3]}]);
+  });
+});
+table.on('dealt_river', function(card) {
+  allListeners(function(spark) {
+    spark.write(['community_deal_card', {card: table.communityCards[4]}]);
   });
 });
 
 table.on('player_dealt_card', function(pos, card) {
   allListeners(function(spark) {
-    var isMe = table.getUuidPos(spark.uuid) === pos;
+    var isMe = table.getPosFromUuid(spark.uuid) === pos;
     spark.write(['player_deal_card', {
       pos: pos,
       card: isMe ? card : -1
@@ -181,11 +207,19 @@ table.on('dealer_moved', function(pos) {
 
 table.on('action_moved', function(pos, timer, opts) {
   allListeners(function(spark) {
-    var isMe = table.getUuidPos(spark.uuid) === pos;
+    var myPos = table.getPosFromUuid(spark.uuid);
+    var myOptions = null;
+    if (myPos !== -1) {
+      myOptions = table.actionOpts(myPos);
+    }
+
     spark.write(['set_action', {
       pos: pos,
       timer: timer,
-      opts: isMe ? opts : null
+      myopts: myPos !== -1 ? myOptions : null,
+
+      // TODO: Remove This
+      opts: pos === myPos ? myOptions : null
     }]);
   });
 });
