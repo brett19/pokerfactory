@@ -1,0 +1,19 @@
+.card {
+    position: absolute;
+    background: url(../imgs/cardsNew.png) 0px 0px;
+    background-size: 650px 280px;
+    width: 50px;
+    height: 70px;
+}
+.cardFlip {
+    position: absolute;
+    background: url(../imgs/cardFlip.png) 0px 0px;
+    width: 50px;
+    height: 70px;
+}
+.cardBack {
+    position: absolute;
+    background: url(../imgs/cardBackNew.png) 0px 0px;
+    width: 50px;
+    height: 70px;
+}

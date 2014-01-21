@@ -25,6 +25,14 @@
         .tablelist tbody tr {
             cursor: pointer;
         }
+
+        #login_progress {
+            display: none;
+        }
+
+        #login_warning {
+            color: #890004;
+        }
     </style>
 </head>
 <body>
@@ -47,6 +55,9 @@
         Username: <input type="text" id="login_username" /><br />
         Password: <input type="password" id="login_password" /><br />
         <button id="do_login">Login</button>
+        <div id="login_progress">Working...</div><br />
+        <br />
+        <div id="login_warning"></div>
     </div>
 
     <div id="loading">
@@ -54,7 +65,8 @@
             <div id="loadingBlock">
                 <div id="loadingWarn">
                     <img src="imgs/warning.png" />
-                    <b>Warning:</b> Something happened...
+                    <b>Warning:</b>
+                    <span id="loadingWarnText">Something happened...</span>
                 </div>
                 <div id="loadingText">Loading Test...</div>
                 <img id="loadingBar" src="imgs/loaderBar.png" />

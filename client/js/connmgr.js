@@ -13,10 +13,11 @@ ConnManager.prototype.connect = function(uri) {
   primus.on('open', function() {
     self._connected = true;
   });
-  primus.on('end', function() {
+  primus.on('close', function() {
     self._connected = false;
   });
   primus.on('data', function(data) {
+    console.log('data', data[0], data[1]);
     self.ninvoke(data[0], data[1]);
   });
 
@@ -39,6 +40,10 @@ ConnManager.prototype.nemit = function(cmd, data) {
 ConnManager.prototype.ninvoke = function(cmd, data) {
   if (!this.eventHandlers[cmd]) {
     return;
+  }
+
+  if (!data) {
+    data = {};
   }
 
   var handlerList = this.eventHandlers[cmd];

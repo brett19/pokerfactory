@@ -1,4 +1,6 @@
+var Logger = require('./logger');
 var lobbyManager = require('./lobbymanager')();
+var userManager = require('./usermanager')();
 
 function ConnManager() {
 }
@@ -17,10 +19,13 @@ ConnManager.prototype.onDisconnect = function(socket) {
 };
 
 ConnManager.prototype.dispatch = function(socket, cmd, data) {
+  console.log(cmd, data);
+
   if (cmd === 'login') {
-    userManager.loginUser(data.name, '', function(user) {
+    userManager.loginUser(data.username, data.password, function(user) {
       if (!user) {
         // Invalid username/password
+        socket.nemit('login_failed', { reason: 0 });
         Logger.debug('login attempt with bad user/pass');
         return;
       }
@@ -34,6 +39,8 @@ ConnManager.prototype.dispatch = function(socket, cmd, data) {
 
       socket.user = user;
       user.onConnect(socket);
+
+      socket.nemit('login_success');
     });
   } else if (cmd === 'sub_lobby') {
     lobbyManager.addSocket(socket);

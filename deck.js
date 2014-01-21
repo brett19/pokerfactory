@@ -2,24 +2,28 @@ var Chance = require('chance');
 
 var chance = new Chance();
 
-function Deck() {
+function Deck(mode) {
+  if (mode === undefined) {
+    mode = 0;
+  }
+
   this._cards = [];
 
-  /* NORMAL
-  for (var i = 0; i < 52; ++i) {
-    this._cards.push(i);
+  if (mode === 0) {
+    for (var i = 0; i < 52; ++i) {
+      this._cards.push(i);
+    }
+  } else if (mode === 1) {
+    for (var i = 0; i < 4; ++i) {
+      this._cards.push(8 + i*13);
+      this._cards.push(9 + i*13);
+      this._cards.push(10 + i*13);
+      this._cards.push(11 + i*13);
+      this._cards.push(12 + i*13);
+    }
+  } else {
+    throw new Error();
   }
-  //*/
-
-  //* HIGH CARDS ONLY
-  for (var i = 0; i < 4; ++i) {
-    this._cards.push(8 + i*13);
-    this._cards.push(9 + i*13);
-    this._cards.push(10 + i*13);
-    this._cards.push(11 + i*13);
-    this._cards.push(12 + i*13);
-  }
-  //*/
 }
 
 Deck.prototype.shuffle = function() {

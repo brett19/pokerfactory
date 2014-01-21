@@ -2,6 +2,11 @@ var cashRoomManager = require('./cashroommanager')();
 
 function LobbyManager() {
   this.sockets = [];
+  this.lastDispatchIdx = 0;
+
+  setInterval(function() {
+    this.dispatchSome();
+  }.bind(this), 2000);
 }
 LobbyManager.prototype.addSocket = function(socket) {
   this.sockets.push(socket);
@@ -14,9 +19,19 @@ LobbyManager.prototype.removeSocket = function(socket) {
   }
 };
 LobbyManager.prototype.dispatchSome = function() {
-  // TODO: Make this only do some players at a time.
-  for (var i = 0; i < this.sockets.length; ++i) {
-    this.sendLobbyData(this.sockets[i]);
+  var totalDispatch = Math.ceil(this.sockets.length / 10);
+  if (totalDispatch > this.sockets.length) {
+    totalDispatch = this.sockets.length;
+  }
+
+  for (var i = 0; i < totalDispatch; ++i) {
+    this.lastDispatchIdx++;
+    if (this.lastDispatchIdx >= this.sockets.length) {
+      this.lastDispatchIdx = 0;
+    }
+    var thisIdx = this.lastDispatchIdx;
+
+    this.sendLobbyData(this.sockets[thisIdx]);
   }
 };
 
@@ -28,9 +43,9 @@ LobbyManager.prototype.sendLobbyData = function(socket) {
       id: room.id,
       name: room.name,
       seatedCount: room.usersSeated(),
-      seatCount: room.tableOpts.seatCount,
-      smallBlind: room.tableOpts.blinds[0][0],
-      bigBlind: room.tableOpts.blinds[0][0] * 2
+      seatCount: room.seatCount(),
+      smallBlind: room.currentBlinds(),
+      bigBlind: room.currentBlinds() * 2
     });
   }
 

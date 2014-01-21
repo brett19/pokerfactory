@@ -1,0 +1,119 @@
+.player {
+    position: absolute;
+    width: 200px;
+    height: 80px;
+    outline: 1px solid #888888;
+    background-color: white;
+}
+.playerLeft {
+}
+.playerRight {
+}
+
+.seatEmpty {
+    text-align: center;
+    font-size: 20px;
+    padding-top: 26px;
+}
+
+.playerTimer {
+    position: absolute;
+    left: 1px;
+    top: 76px;
+    width: 198px;
+    height: 3px;
+}
+
+.playerTimerVal {
+    width: 20%;
+    height: 3px;
+    background-color: #890004;
+}
+
+.playerIcon {
+    position: absolute;
+    width: 66px;
+    height: 66px;
+    outline: 1px dashed #231f20;
+    background-image: url(../imgs/playericons/default.png);
+}
+.playerLeft .playerIcon {
+    left: 128px;
+    top: 7px;
+}
+.playerRight .playerIcon {
+    right: 128px;
+    top: 7px;
+}
+
+.playerName {
+    position: absolute;
+    font-size: 13px;
+    font-weight: bold;
+}
+.playerLeft .playerName {
+    left: 10px;
+    top: 16px;
+    text-align: left;
+}
+.playerRight .playerName {
+    right: 10px;
+    top: 13px;
+    text-align: right;
+}
+
+.playerBalance {
+    position: absolute;
+    font-size: 13px;
+}
+.playerLeft .playerBalance {
+    left: 10px;
+    top: 51px;
+    text-align: left;
+}
+.playerRight .playerBalance {
+    right: 10px;
+    top: 51px;
+    text-align: right;
+}
+
+.playerSitOut {
+    position: absolute;
+    width: 66px;
+    font-size: 11px;
+    font-family: 'Ubuntu', Tahoma, sans-serif;
+    font-weight: bold;
+    text-align: center;
+}
+.playerLeft .playerSitOut {
+    left: 128px;
+    top: 10px;
+}
+.playerRight .playerSitOut {
+    right: 128px;
+    top: 10px;
+}
+
+.playerSitOutText {
+    position: relative;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+.playerSitOutMask {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    background-color: #ffffff;
+    opacity: 0.6;
+}
+
+#player_4_1 {
+    left: 100px;
+    top: 100px;
+}
+#player_4_2 {
+    left: 400px;
+    top: 100px;
+}

@@ -16,10 +16,9 @@ function formatChipNum(type, val) {
     return formatFakeNum(val);
   }
 }
-
 function formatDollars(val) {
   if (val < 100) {
-    return val + '¢';
+    return val + '\xA2';
   }
   return formatCashNum(val);
 }
@@ -30,6 +29,8 @@ connManager.on('open', function() {
 });
 
 connManager.non('game_lobby', function(data) {
+  console.log('lobby data', data);
+
   var cashGameListEl = $('#cashgamelist tbody');
   cashGameListEl.empty();
 
@@ -41,20 +42,34 @@ connManager.non('game_lobby', function(data) {
     cashGameEl.append('<td>' + formatDollars(cashGame.smallBlind) + '/' + formatDollars(cashGame.bigBlind) + '</td>');
     cashGameEl.append('<td>' + cashGame.seatedCount + '/' + cashGame.seatCount + '</td>');
 
-    cashGameEl.click(function() {
-      connManager.nemit('room_join', {
-        id: cashGame.id
+    (function (cashGameId) {
+      cashGameEl.click(function() {
+        connManager.nemit('game_joincashroom', {
+          id: cashGameId
+        });
       });
-    });
+    })(cashGame.id);
 
     cashGameListEl.append(cashGameEl);
   }
 });
 
+var openRooms = [];
+
 function openRoom(info) {
-  var windowHandle = window.open('table.html', 'table_' + info.id, 'width=800,height=600,top=50,left=50');
-  windowHandle.connManager = connManager;
+  var windowHandle = window.open('table.html#' + info.id, '', 'width=991,height=772,resizeable=no,scrollsbars=no,status=no,menubar=no,location=no');
+  openRooms.push(windowHandle);
+
+  windowHandle.myWindowHandle = windowHandle;
   windowHandle.roomInfo = info;
+}
+function roomOpened(windowHandle, roomId, func) {
+  // Not yet implemented
+}
+function roomClosed(windowHandle, roomId) {
+  connManager.nemit('room_leave', {
+    roomId: roomId
+  });
 }
 
 function LoginUiController() {
@@ -65,6 +80,15 @@ LoginUiController.prototype.init = function() {
   $('#do_login').click(function() {
     self.doLogin();
   });
+
+  connManager.non('login_success', function(data) {
+    self.stopTryLogin();
+    beginLobbyState();
+  });
+  connManager.non('login_failed', function(data) {
+    self.stopTryLogin();
+    self.setWarningText('bad username/password');
+  });
 };
 
 LoginUiController.prototype.show = function() {
@@ -74,15 +98,64 @@ LoginUiController.prototype.hide = function() {
   $('#login').hide();
 };
 
+LoginUiController.prototype.setWarningText = function(text) {
+  $('#login_warning').html('<b>Warning:</b> ' + text);
+}
+
 LoginUiController.prototype.setUsername = function(val) {
   $('#login_username').val(val);
 };
 
+LoginUiController.prototype.beginTryLogin = function() {
+  $('#login_username').attr('disabled', true);
+  $('#login_password').attr('disabled', true);
+  $('#do_login').hide();
+  $('#login_progress').text('Logging in...');
+  $('#login_progress').show();
+};
+LoginUiController.prototype.stopTryLogin = function() {
+  $('#login_username').attr('disabled', false);
+  $('#login_password').attr('disabled', false);
+  $('#do_login').show();
+  $('#login_progress').hide();
+}
+
 LoginUiController.prototype.doLogin = function() {
+  this.beginTryLogin();
+
+  var username = $('#login_username').val();
+  var password = $('#login_password').val();
+
+  connManager.nemit('login', {
+    username: username,
+    password: password
+  })
   console.log('attempt login');
 };
 
 var loginUi = new LoginUiController();
+
+
+function LobbyUiController() {
+}
+LobbyUiController.prototype.init = function() {
+  connManager.non('game_openroom', function(data) {
+    openRoom(data);
+  });
+};
+LobbyUiController.prototype.show = function() {
+  $('#lobby').show();
+};
+LobbyUiController.prototype.hide = function() {
+  $('#lobby').hide();
+};
+
+var lobbyUi = new LobbyUiController();
+
+function beginLobbyState() {
+  loginUi.hide();
+  lobbyUi.show();
+}
 
 function beginLoginState() {
   loginUi.show();
@@ -96,10 +169,29 @@ function beginLoginState() {
 $(document).ready(function() {
   loaderUi.init();
   loginUi.init();
+  lobbyUi.init();
 
-  $('#login').hide();
-  $('#lobby').hide();
+  connManager.on('close', function() {
+    for (var i = 0; i < openRooms.length; ++i) {
+      openRooms[i].close();
+    }
+    openRooms = [];
 
+    loginUi.hide();
+    lobbyUi.hide();
+    loaderUi.show();
+
+    loaderUi.setWarningText('Your connection to the server has been lost.');
+    preloadManager.start(function() {
+      console.log('reconnected....');
+
+      loaderUi.hide();
+      beginLoginState();
+    });
+  });
+
+  loginUi.hide();
+  lobbyUi.hide();
   loaderUi.show();
   preloadManager.start(function() {
     loaderUi.hide();

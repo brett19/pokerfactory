@@ -5,9 +5,266 @@
     <script src="js/jquery.1.10.2.min.js"></script>
     <script src="js/createjs-2013.12.12.min.js"></script>
     <script src="/primus/primus.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/tablelink.js"></script>
+    <script src="js/table_chipstack.js"></script>
+    <script src="js/playeruicontroller.js"></script>
+    <script src="js/carduicontroller.js"></script>
+    <script src="js/optionsuicontroller.js"></script>
+    <script src="js/stackmanager.js"></script>
+    <script src="js/commuicontroller.js"></script>
+    <script src="js/tableseat.js"></script>
     <script src="js/table.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles/table.css">
+    <link rel="stylesheet" type="text/css" href="styles/cards.css">
+    <link rel="stylesheet" type="text/css" href="styles/player.css">
+    <link rel="stylesheet" type="text/css" href="styles/chips.css">
+    <style type="text/css">
+        body {
+            padding: 0px;
+            margin: 0px;
+            font-family: Verdana;
+            font-size: 11px;
+            background-color: #202020;
+            overflow: hidden;
+        }
+        #pageWrap {
+            position: relative;
+            left: 50%;
+            margin-left: -495px;
+            width: 991px;
+        }
+        #wrap {
+            position: absolute;
+            left: 16px;
+            top: 48px;
+            outline: 1px solid black;
+            width: 960px;
+            height: 540px;
+            background-image: url(imgs/table.png);
+            background-size: 960px 540px;
+        }
+
+        #roomBg {
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            width: 991px;
+            height: 772px;
+            background-image: url(imgs/roomBg.png);
+        }
+
+        #chatWindow {
+            position: absolute;
+            left: 13px;
+            top: 599px;
+            width: 419px;
+            height: 162px;
+            outline: 1px dashed black;
+        }
+
+        #optionsWindow {
+            position: absolute;
+            left: 454px;
+            top: 599px;
+            width: 525px;
+            height: 162px;
+            outline: 1px dashed black;
+
+            cursor: default;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        #optionsWindow button,input {
+            margin: 4px;
+        }
+
+        #btnOptFold {
+            position: absolute;
+            left: 8px;
+            top: 12px;
+            width: 154px;
+            height: 40px;
+            background-image: url(imgs/btnFold.png);
+            font-family: Calibri;
+            font-size: 17px;
+            color: #ffffff;
+            text-align: center;
+            padding-top: 12px;
+        }
+        #btnOptFold:hover {
+            background-image: url(imgs/btnFoldOver.png);
+        }
+        #btnOptFold:active {
+            background-image: url(imgs/btnFoldDown.png);
+        }
+
+        #btnOptCall {
+            position: absolute;
+            left: 187px;
+            top: 12px;
+            width: 154px;
+            height: 40px;
+            background-image: url(imgs/btnCall.png);
+            font-family: Calibri;
+            font-size: 17px;
+            color: #ffffff;
+            text-align: center;
+            padding-top: 12px;
+        }
+        #btnOptCall:hover {
+            background-image: url(imgs/btnCallOver.png);
+        }
+        #btnOptCall:active {
+            background-image: url(imgs/btnCallDown.png);
+        }
+
+
+        #btnOptBet {
+            position: absolute;
+            left: 364px;
+            top: 12px;
+            width: 154px;
+            height: 40px;
+            background-image: url(imgs/btnBet.png);
+            font-family: Calibri;
+            font-size: 17px;
+            color: #ffffff;
+            text-align: center;
+            padding-top: 12px;
+        }
+        #btnOptBet:hover {
+            background-image: url(imgs/btnBetOver.png);
+        }
+        #btnOptBet:active {
+            background-image: url(imgs/btnBetDown.png);
+        }
+
+        #betSlider {
+            position: absolute;
+            left: 5px;
+            top: 71px;
+        }
+
+        #betSliderBg {
+            position: absolute;
+            left: 0px;
+            top: 30px;
+            width: 512px;
+            height: 51px;
+            background-image: url(imgs/betSlider.png);
+        }
+
+        #betSliderVal {
+            position: absolute;
+            left: 413px;
+            top: 38px;
+            width: 78px;
+            height: 30px;
+            text-align: center;
+            font-family: Calibri;
+            font-size: 17px;
+            color: #ffffff;
+            background-color: transparent;
+            border: 0px;
+            padding: 0px;
+            margin: 0px;
+        }
+        #betSliderVal:focus {
+            outline: 0;
+        }
+
+        #betSliderPos {
+            position: absolute;
+            left: 370px;
+            top: 41px;
+            width: 24px;
+            height: 25px;
+            background-image: url(imgs/betSliderPos.png);
+        }
+
+        .betSliderBtn {
+            position: absolute;
+            background-image: url(imgs/betSliderBtns.png);
+        }
+        .betSliderBtn:hover {
+            background-image: url(imgs/betSliderBtnsOver.png);
+        }
+        #betSliderMin {
+            left: 0px;
+            top: 0px;
+            width: 105px;
+            height: 44px;
+            background-position: 0px 0px;
+        }
+        #betSlider12 {
+            left: 105px;
+            top: 0px;
+            width: 101px;
+            height: 44px;
+            background-position: -105px 0px;
+        }
+        #betSlider34 {
+            left: 206px;
+            top: 0px;
+            width: 101px;
+            height: 44px;
+            background-position: -206px 0px;
+        }
+        #betSliderPot {
+            left: 307px;
+            top: 0px;
+            width: 100px;
+            height: 44px;
+            background-position: -307px 0px;
+        }
+        #betSliderMax {
+            left: 407px;
+            top: 0px;
+            width: 105px;
+            height: 44px;
+            background-position: -407px 0px;
+        }
+
+    </style>
 </head>
 <body>
-    This is a table.
+    <div id="pageWrap">
+        <div id="roomBg"></div>
+        <div id="wrap">
+            <div id="chipStacks"></div>
+            <div id="playerCards"></div>
+            <div id="playerPanels"></div>
+        </div>
+        <div id="chatWindow">
+            This is a chat box!
+
+            <button id="actStand">Stand Up</button>
+            <button id="actSitIn">Sit In</button>
+            <button id="actSitOut">Sit Out</button>
+        </div>
+        <div id="optionsWindow">
+            <div id="optionsPanel" style="display:none;">
+                <div id="btnOptFold">Fold</div>
+                <div id="btnOptCall">Call $999,999</div>
+                <div id="btnOptBet">Bet $999,999</div>
+
+                <div id="betSlider">
+                    <div id="betSliderMin" class="betSliderBtn"></div>
+                    <div id="betSlider12" class="betSliderBtn"></div>
+                    <div id="betSlider34" class="betSliderBtn"></div>
+                    <div id="betSliderPot" class="betSliderBtn"></div>
+                    <div id="betSliderMax" class="betSliderBtn"></div>
+                    <div id="betSliderBg"></div>
+                    <input type="text" id="betSliderVal" value="99.99" />
+                    <div id="betSliderPos"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

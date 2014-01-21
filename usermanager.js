@@ -9,6 +9,11 @@ UserManager.prototype.loginUser = function(username, password, callback) {
   // TODO: Database load
   var uuid = username;
 
+  if (password !== '') {
+    callback(null);
+    return;
+  }
+
   var user = this.users[uuid];
   if (!user) {
     user = new User(uuid, username, 5000);
@@ -17,7 +22,8 @@ UserManager.prototype.loginUser = function(username, password, callback) {
 
   Logger.debug('user', user.name, 'loaded');
 
-  return user;
+  callback(user);
+  return;
 };
 
 var userManager = new UserManager();

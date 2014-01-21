@@ -20,7 +20,7 @@ LoaderUiController.prototype.setWarningText = function(text) {
     return;
   }
 
-  $('#loadingWarn').html('<b>Warning:</b> ' + text);
+  $('#loadingWarnText').text(text);
   $('#loadingWarn').show();
 };
 LoaderUiController.prototype.show = function() {

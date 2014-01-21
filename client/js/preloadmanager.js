@@ -7,7 +7,6 @@ if (OPTIONS['dev']) {
 }
 
 function preloadManager() {
-  this.onFinish = null;
   this.needAssetLoad = true;
 }
 
@@ -55,6 +54,7 @@ preloadManager.prototype.start = function(completeCallback) {
     if (diffAmount < 0) {
       diffAmount = 0;
     }
+
     curProgress += diffAmount * (1.0 - SMOOTHING_AMOUNT);
 
     var smoothedProgress = curProgress;
@@ -83,7 +83,6 @@ preloadManager.prototype.start = function(completeCallback) {
 
 preloadManager.prototype._startLoad = function(handler) {
   var loadState = {};
-  this.loadStates.push(loadState);
 
   loadState.name = 'Loading, uh, something...';
   loadState.current = 0;
@@ -94,6 +93,10 @@ preloadManager.prototype._startLoad = function(handler) {
     self._updateProgress();
   };
   loadState.total = handler.call(this, loadState);
+
+  if (loadState.total > 0) {
+    this.loadStates.push(loadState);
+  }
 };
 preloadManager.prototype._updateProgress = function() {
   for (var i = 0; i < this.loadStates.length; ++i) {
@@ -119,11 +122,12 @@ preloadManager.prototype._startAssetLoad = function(state) {
     'sounds/win.wav'
   ]);
 
+  var self = this;
   queue.on('progress', function(e) {
     state.update(80 * e.progress);
   });
   queue.on("complete", function() {
-    this.needAssetLoad = false;
+    self.needAssetLoad = false;
     state.update(80);
   });
 

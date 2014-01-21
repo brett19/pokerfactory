@@ -1,7 +1,7 @@
 var CARD_LNAMES = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
 var CARD_NAMES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-var CARD_LSUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
-var CARD_SUITS = ['h', 'd', 'c', 's'];
+var CARD_LSUITS = ['spades', 'clubs', 'diamonds', 'hearts'];
+var CARD_SUITS = ['s', 'c', 'd', 'h'];
 
 function Card() {
   throw new Error('cards are integers, Card just has helpers');

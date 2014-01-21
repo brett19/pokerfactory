@@ -10,26 +10,15 @@ function PokerPlayer(uuid, name, balance)
   this.uuid = uuid;
   this.name = name;
   this.balance = balance;
-  this.autoPayBlinds = false;
+  this.autoPayBlinds = true;
   this.sittingOut = false;
   this.inHand = false;
   this.holeCards = [];
   this.bet = 0;
 }
 
-function PokerTable(uuid, _opts)
+function PokerTable(uuid, opts)
 {
-  var opts = {
-    seatCount: 4,
-    blindsDuration: 5000,
-    blindsLevels: [
-      [100, 25],
-      [200, 50],
-      [400, 100],
-      [1000, 250]
-    ]
-  };
-
   this.uuid = uuid;
   this.blindsDuration = opts.blindsDuration;
   this.blindsLevels = opts.blindsLevels;
@@ -41,7 +30,7 @@ function PokerTable(uuid, _opts)
   this.state = 0;
   this.isShowdown = false;
   this.communityCards = [];
-  this.deck = null;
+  this.deck = new Deck(0);
   this.curBet = 0;
   this.dealerPos = -1;
   this.actionPos = -1;
@@ -118,23 +107,7 @@ PokerTable.prototype.isValidSeat = function(seatIdx) {
   return true;
 };
 
-PokerTable.prototype.playerCanPlay = function(idx) {
-  if (!this.seats[idx]) {
-    return false;
-  }
-
-  if (this.seats[idx].sittingOut) {
-    return false;
-  }
-
-  if (this.seats[idx].balance <= 0) {
-    return false;
-  }
-
-  return true;
-};
-
-PokerTable.prototype.seatsTaken = function() {
+PokerTable.prototype.seatedCount = function() {
   var seatedCount = 0;
   for (var i = 0; i < this.seats.length; ++i) {
     if (this.seats[i]) {
@@ -269,7 +242,7 @@ PokerTable.prototype.playerSitIn = function(seatIdx) {
 
   var player = this.seats[seatIdx];
 
-  if (player.sittingOut) {
+  if (!player.sittingOut) {
     Logger.warn('sit in failed - already sitting in');
     return false;
   }
@@ -355,6 +328,8 @@ PokerTable.prototype.playerCheck = function(seatIdx) {
     return;
   }
 
+  this.emit('player_checked', seatIdx);
+
   this.advanceAction();
 };
 
@@ -373,6 +348,8 @@ PokerTable.prototype.playerCall = function(seatIdx) {
   }
 
   this._doBetAmount(seatIdx, diffAmount);
+
+  this.emit('player_called', seatIdx);
 
   this.advanceAction();
 };
@@ -402,6 +379,8 @@ PokerTable.prototype.playerBet = function(seatIdx, amount) {
 
   this._doBetAmount(seatIdx, amount - player.bet);
 
+  this.emit('player_bet', seatIdx);
+
   this.lastActionPos = seatIdx;
   this.advanceAction();
 };
@@ -427,6 +406,8 @@ PokerTable.prototype.playerRaise = function(seatIdx, amount) {
 
   this._doBetAmount(seatIdx, amount - player.bet)
 
+  this.emit('player_raised', seatIdx);
+
   this.lastActionPos = seatIdx;
   this.advanceAction();
 };
@@ -442,22 +423,25 @@ PokerTable.prototype.playerRaise = function(seatIdx, amount) {
 PokerTable.prototype.checkBlindsLevel = function() {
   Logger.debug('check blinds level :', this.blindsLevel);
 
+  // Make sure we even have levels
   if (this.blindsDuration === 0) {
     return;
   }
 
-  if (Date.now() < this.blindsStart + this.blindsDuration) {
+  // Check if at max blinds level
+  if (this.blindsLevel === this.blindsLevels.length - 1) {
     return;
   }
 
-  // TODO: Need to handle multiple levels between checks
+  // Update the blinds!
+  while (Date.now() >= this.blindsStart + this.blindsDuration) {
+    this.blindsLevel++;
+    this.blindsStart = Date.now();
+    this.blinds = this.blindsLevels[this.blindsLevel][0];
+    this.ante = this.blindsLevels[this.blindsLevel][1];
 
-  this.blindsLevel++;
-  this.blindsStart = Date.now();
-  this.blinds = this.blindsLevels[this.blindsLevel][0];
-  this.ante = this.blindsLevels[this.blindsLevel][1];
-
-  Logger.debug('blinds changed :', this.blindsLevel, ':', this.blinds, ':', this.ante);
+    Logger.debug('blinds changed :', this.blindsLevel, ':', this.blinds, ':', this.ante);
+  }
 };
 
 PokerTable.prototype.actionOpts = function(seatIdx) {
@@ -487,6 +471,17 @@ PokerTable.prototype.actionOpts = function(seatIdx) {
       big: needPayBig
     };
   }
+
+  var totalPot = 0;
+  for (var i = 0; i < this.pots.length; ++i) {
+    totalPot += this.pots[i].amount;
+  }
+  for (var i = 0; i < this.seats.length; ++i) {
+    if (this.seats[i]) {
+      totalPot += this.seats[i].bet;
+    }
+  }
+
 
   var bet_allin = player.balance + player.bet;
   var bet_min = this.curBet * 2;
@@ -526,12 +521,14 @@ PokerTable.prototype.actionOpts = function(seatIdx) {
     type: 'bet',
     fold: true,
     check: player.bet === this.curBet,
-    call: player.bet !== this.curBet ? callCost : 0,
+    call: player.bet !== this.curBet,
     bet: this.curBet === 0 && canBet,
     raise: this.curBet !== 0 && canBet,
     bet_min: bet_min,
     bet_max: bet_max,
+    bet_pot: totalPot,
     bet_allin: bet_allin,
+    call_cost: callCost,
     curbet: player.bet
   };
 }
@@ -559,10 +556,10 @@ PokerTable.prototype.handleActionTimer = function() {
     } else if (this.bigBlindPos === -1) {
       this.playerBigBlind(this.actionPos);
     }
+    return;
   } else {
-    // No betting auto-action for testing
+    // Continue normally
   }
-  return;
   // ---- TESTING STUFF ----
 
 
@@ -570,10 +567,10 @@ PokerTable.prototype.handleActionTimer = function() {
   if (actionOpts.check) {
     this.playerCheck(this.actionPos);
   } else {
-    this.playerFold(this.actionPos);
-
     // Try to sitout this player
     this.playerSitOut(this.actionPos);
+
+    this.playerFold(this.actionPos);
   }
 };
 
@@ -667,6 +664,16 @@ PokerTable.prototype.advanceAction = function() {
   this.startActionTimer(ACTION_TIME);
 
   this.emit('action_moved', this.actionPos, ACTION_TIME);
+
+  var actionPlayer = this.seats[this.actionPos];
+  if (!actionPlayer || actionPlayer.sittingOut) {
+    var actionOpts = this.actionOpts(this.actionPos);
+    if (actionOpts.check) {
+      this.playerCheck(this.actionPos);
+    } else {
+      this.playerFold(this.actionPos);
+    }
+  }
 };
 
 PokerTable.prototype._advanceAction = function() {
@@ -958,7 +965,7 @@ PokerTable.prototype.removeFromPots = function(idx) {
   }
 };
 
-var COLLECT_TIME = 1000;
+var COLLECT_TIME = 1200;
 
 PokerTable.prototype.collectBets = function(handler) {
   while (true) {
@@ -1201,12 +1208,25 @@ PokerTable.prototype.resolvePots = function(callback) {
   this.resolvePot(potId++, resolveOnePot);
 };
 
+PokerTable.prototype.rakePots = function() {
+  for (var i = 0; i < this.pots.length; ++i) {
+    var pot = this.pots[i];
+
+    var rakeAmount = Math.floor(pot.amount * 0.1);
+    pot.amount -= rakeAmount;
+
+    this.emit('pot_raked', i, rakeAmount);
+  }
+};
+
 PokerTable.prototype.completePlay = function() {
   Logger.debug('complete play');
 
   if (this.playersInHand() > 1) {
     this.doShowdown();
   }
+
+  this.rakePots();
 
   this.resolvePots(function() {
     setTimeout(function() {
@@ -1234,8 +1254,6 @@ PokerTable.prototype.dealCardTo = function(idx) {
 
   var card = this.deck.pop();
   player.holeCards.push(card);
-
-  this.emit('player_dealt_card', idx, card);
 };
 
 PokerTable.prototype.dealHands = function() {
@@ -1249,10 +1267,11 @@ PokerTable.prototype.dealHands = function() {
       this.dealCardTo(i);
     }
   }
+
+  this.emit('dealt_hands');
 }
 
 PokerTable.prototype.newDeck = function() {
-  this.deck = new Deck();
   this.deck.shuffle();
 };
 
@@ -1322,10 +1341,7 @@ PokerTable.prototype.info = function(uuid) {
     communityCards: this.communityCards,
     pots: this.potInfos(),
     seats: this.playerInfos(uuid),
-    myopts: myOptions,
-
-    // TODO: Remove this
-    actionOpts: myPos === this.actionPos ? myOptions : null
+    myOptions: myOptions
   };
 };
 

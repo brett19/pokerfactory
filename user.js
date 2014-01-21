@@ -1,4 +1,6 @@
 var Logger = require('./logger');
+var Poker = require('./poker');
+var cashRoomManager = require('./cashroommanager')();
 
 function User(uuid, name, balance) {
   this.eventHandlers = {};
@@ -10,6 +12,7 @@ function User(uuid, name, balance) {
   this.rooms = [];
 
   this.non('sub_lobby', this.onSub_Lobby);
+  this.non('game_joincashroom', this.onGame_JoinCashRoom);
   this.non_room('room_leave', this.onRoom_Leave);
   this.non_room('tbl_sitdown', this.onRoom_SitDown);
   this.non_room('tbl_standup', this.onRoom_StandUp);
@@ -36,6 +39,7 @@ User.prototype.non_room = function(cmd, handler) {
 };
 
 User.prototype.nemit = function(cmd, data) {
+  console.log(this.uuid, cmd);
   if (this.socket) {
     this.socket.write([cmd, data]);
   }
@@ -45,9 +49,13 @@ User.prototype.ninvoke = function(cmd, data) {
     return;
   }
 
+  if (!data) {
+    data = {};
+  }
+
   var handlerList = this.eventHandlers[cmd];
   for (var i = 0; i < handlerList.length; ++i) {
-    handlerList[i](data);
+    handlerList[i].call(this, data);
   }
 };
 User.prototype.non = function(cmd, handler) {
@@ -94,20 +102,32 @@ User.prototype.onDisconnect = function() {
 };
 
 User.prototype.findRoom = function(roomId) {
-  var foundRoom = null;
   for (var i = 0; i < this.rooms.length; ++i) {
     var room = this.rooms[i];
-    if (room.id === data.roomId) {
-      foundRoom = room;
-      return;
+    if (room.id === roomId) {
+      return room;
     };
   }
-  return foundRoom;
+  return null;
 };
 
 
 User.prototype.onSub_Lobby = function(data) {
   Logger.debug('subscribed to lobby');
+};
+
+
+User.prototype.onGame_JoinCashRoom = function(data) {
+  Logger.debug('user joining room :', data.id);
+
+  var room = cashRoomManager.findRoomById(data.id);
+  if (!room) {
+    Logger.warn('tried to join invalid cash room');
+    return;
+  }
+
+  room.addUser(this);
+  room.onUserConnect(this);
 };
 
 
@@ -118,43 +138,44 @@ User.prototype.onRoom_Leave = function(room, data) {
     return;
   }
 
+  room.onUserDisconnect(this);
   room.removeUser(this);
 };
 User.prototype.onRoom_SitDown = function(room, data) {
-  var player = new poker.Player(this.uuid, this.name, data.buyIn);
-  table.playerSit(data.pos, player);
+  var player = new Poker.Player(this.uuid, this.name, data.buyIn);
+  room.table.playerSit(data.seatIdx, player);
 };
 User.prototype.onRoom_StandUp = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerStandUp(seatIdx);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerStandUp(seatIdx);
 };
 User.prototype.onRoom_SitIn = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerSitIn(seatIdx);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerSitIn(seatIdx);
 };
 User.prototype.onRoom_SitOut = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerSitOut(seatIdx);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerSitOut(seatIdx);
 };
 User.prototype.onRoom_Fold = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerFold(seatIdx);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerFold(seatIdx);
 };
 User.prototype.onRoom_Check = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerCheck(seatIdx);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerCheck(seatIdx);
 };
 User.prototype.onRoom_Call = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerCall(seatIdx);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerCall(seatIdx);
 };
 User.prototype.onRoom_Bet = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerBet(seatIdx, data.amount);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerBet(seatIdx, data.amount);
 };
 User.prototype.onRoom_Raise = function(room, data) {
-  var seatIdx = room.getPosFromUuid(this.uuid);
-  this.table.playerRaise(seatIdx, data.amount);
+  var seatIdx = room.table.getPosFromUuid(this.uuid);
+  room.table.playerRaise(seatIdx, data.amount);
 };
 
 module.exports = User;

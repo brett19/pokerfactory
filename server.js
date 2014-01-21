@@ -18,7 +18,16 @@ var primus = new Primus(server, {
 
 
 
-var table = new Poker.Table('000000', 'Main');
+var table = new Poker.Table('000000', {
+  seatCount: 4,
+  blindsDuration: 5000,
+  blindsLevels: [
+    [100, 25],
+    [200, 50],
+    [400, 100],
+    [1000, 250]
+  ]
+});
 
 var listeners = [];
 function allListeners(callback) {
@@ -51,11 +60,13 @@ primus.on('connection', function (spark) {
     var myPos = table.getPosFromUuid(spark.uuid);
 
     if (cmd === 'login') {
-      listeners.push(spark);
-      spark.uuid = info.name;
-      spark.name = info.name;
-      Logger.info('player_login', spark.name);
-      spark.write(['open_table', table.info(spark.uuid)]);
+      if (info.name) {
+        listeners.push(spark);
+        spark.uuid = info.name;
+        spark.name = info.name;
+        Logger.info('player_login', spark.name);
+        spark.write(['open_table', table.info(spark.uuid)]);
+      }
     } else if (cmd === 'sit_down') {
       Logger.info('player_sitdown', spark.name);
       var player = new Poker.Player(spark.uuid, spark.name, startChips(spark.name));
