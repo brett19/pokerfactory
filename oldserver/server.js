@@ -8,14 +8,12 @@ var connManager = require('./connmanager')();
 
 var app = Express();
 
-app.use("/", Express.static(__dirname + '/client'));
+app.use("/", Express.static(__dirname + '/../client'));
 
 var server = require('http').createServer(app);
 var primus = new Primus(server, {
   transformer: 'engine.io'
 });
-
-
 
 
 var table = new Poker.Table('000000', {

@@ -1,0 +1,6 @@
+{
+  "name": "pf-manager",
+  "dependencies": {
+    "primus": "~1.5.2"
+  }
+}

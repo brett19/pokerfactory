@@ -11,8 +11,8 @@
 }
 .chip {
     position: absolute;
-    width: 28px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     font-family: 'Ubuntu', Tahoma, sans-serif;
     font-size: 9px;
     text-align: center;
@@ -20,68 +20,45 @@
     padding-right: 2px;
 }
 .chip1 {
-    background: url(../imgs/chips.png) -0px 0px;
+    background: url(../imgs/chips/1.png) -0px 0px;
     background-size: 210px 30px;
     color: #000000;
 }
 .chip5 {
-    background: url(../imgs/chips.png) -30px 0px;
+    background: url(../imgs/chips/5.png) -30px 0px;
     background-size: 210px 30px;
     color: #ffffff;
 }
 .chip25 {
-    background: url(../imgs/chips.png) -60px 0px;
+    background: url(../imgs/chips/25.png) -60px 0px;
     background-size: 210px 30px;
     color: #ffffff;
 }
 .chip100 {
-    background: url(../imgs/chips.png) -90px 0px;
+    background: url(../imgs/chips/100.png) -90px 0px;
     background-size: 210px 30px;
     color: #000000;
 }
 .chip1000 {
-    background: url(../imgs/chips.png) -120px 0px;
+    background: url(../imgs/chips/1k.png) -120px 0px;
     background-size: 210px 30px;
     color: #000000;
 }
 .chip5000 {
-    background: url(../imgs/chips.png) -150px 0px;
+    background: url(../imgs/chips/5k.png) -150px 0px;
     background-size: 210px 30px;
     color: #000000;
 }
 .chip25000 {
-    background: url(../imgs/chips.png) 0px 0px;
+    background: url(../imgs/chips/25k.png) 0px 0px;
     background-size: 210px 30px;
     color: #000000;
 }
 .chip100000 {
-    background: url(../imgs/chips.png) 0px 0px;
+    background: url(../imgs/chips/100k.png) 0px 0px;
     background-size: 210px 30px;
     color: #000000;
     padding-top: 9px;
     height: 21px;
     font-size: 8px;
-}
-.chip250000 {
-    background: url(../imgs/chips.png) 0px 0px;
-    background-size: 210px 30px;
-    color: #000000;
-    padding-top: 9px;
-    height: 21px;
-    font-size: 8px;
-}
-.chip1000000 {
-    background: url(../imgs/chips.png) 0px 0px;
-    background-size: 210px 30px;
-    color: #000000;
-}
-.chip5000000 {
-    background: url(../imgs/chips.png) 0px 0px;
-    background-size: 210px 30px;
-    color: #000000;
-}
-.chip25000000 {
-    background: url(../imgs/chips.png) 0px 0px;
-    background-size: 210px 30px;
-    color: #000000;
 }

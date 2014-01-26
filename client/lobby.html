@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stag Poker - Lobby</title>
+    <script src="js/optionparser.js"></script>
+    <script src="js/jquery.1.10.2.min.js"></script>
+    <script src="js/createjs-2013.12.12.min.js"></script>
+    <script src="/primus/primus.js"></script>
+    <script src="js/connmgr.js"></script>
+    <script src="js/loaderuicontroller.js"></script>
+    <script src="js/preloadmanager.js"></script>
+    <script src="js/lobby.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles/loader.css">
+    <link rel="stylesheet" type="text/css" href="styles/lobby.css">
+    <style type="text/css">
+        body {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        .tablelist {
+            width: 800px;
+        }
+
+        .tablelist tbody tr {
+            cursor: pointer;
+        }
+
+        #login_progress {
+            display: none;
+        }
+
+        #login_warning {
+            color: #890004;
+        }
+    </style>
+</head>
+<body>
+    <div id="lobby">
+        <h2>Cash Games</h2>
+        <table id="cashgamelist" class="tablelist" border="1">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Stakes</th>
+                    <th>Players</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="login">
+        Username: <input type="text" id="login_username" /><br />
+        Password: <input type="password" id="login_password" /><br />
+        <button id="do_login">Login</button>
+        <div id="login_progress">Working...</div><br />
+        <br />
+        <div id="login_warning"></div>
+    </div>
+
+    <div id="loading">
+        <div id="loadingWrap">
+            <div id="loadingBlock">
+                <div id="loadingWarn">
+                    <img src="imgs/warning.png" />
+                    <b>Warning:</b>
+                    <span id="loadingWarnText">Something happened...</span>
+                </div>
+                <div id="loadingText">Loading Test...</div>
+                <img id="loadingBar" src="imgs/loaderBar.png" />
+                <div id="loadingPerc">0%</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

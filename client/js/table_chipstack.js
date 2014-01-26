@@ -6,11 +6,7 @@ var STACK_AMOUNTS = [
   [1000, '1k'],
   [5000, '5k'],
   [25000, '25k'],
-  [100000, '100k'],
-  [250000, '250k'],
-  [1000000, '1m'],
-  [5000000, '5m'],
-  [25000000, '25m']
+  [100000, '100k']
 ];
 
 function PokerChipStack(type, amount) {
@@ -56,7 +52,7 @@ function PokerChipStack(type, amount) {
     }
   }
 
-  var CHIP_WIDTH = 28;
+  var CHIP_WIDTH = 24;
   var CHIP_HEIGHT = 2;
 
   var chipHtml = '';

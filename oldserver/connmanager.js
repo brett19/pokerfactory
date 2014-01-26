@@ -21,7 +21,28 @@ ConnManager.prototype.onDisconnect = function(socket) {
 ConnManager.prototype.dispatch = function(socket, cmd, data) {
   console.log(cmd, data);
 
-  if (cmd === 'login') {
+  if (cmd === 'fblogin') {
+    userManager.loginUser(data.fbId, data.fbTkn, function(user) {
+      if (!user) {
+        // Invalid username/password
+        socket.nemit('login_failed', { reason: 0 });
+        Logger.debug('login attempt with bad facebook info');
+        return;
+      }
+
+      var origSocket = user.socket;
+      if (origSocket) {
+        user.onDisconnect();
+        origSocket.user = null;
+        origSocket.end();
+      }
+
+      socket.user = user;
+      user.onConnect(socket);
+
+      socket.nemit('login_success');
+    });
+  } else if (cmd === 'login') {
     userManager.loginUser(data.username, data.password, function(user) {
       if (!user) {
         // Invalid username/password

@@ -1,0 +1,7 @@
+{
+  "name": "pf-frontend",
+  "dependencies": {
+    "primus": "~1.5.2",
+    "express": "~3.4.8"
+  }
+}

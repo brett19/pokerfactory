@@ -5,7 +5,7 @@ function LobbyManager() {
   this.lastDispatchIdx = 0;
 
   setInterval(function() {
-    this.dispatchSome();
+    //this.dispatchSome();
   }.bind(this), 2000);
 }
 LobbyManager.prototype.addSocket = function(socket) {

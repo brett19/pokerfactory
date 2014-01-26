@@ -1,0 +1,6 @@
+{
+  "name": "pf-backend",
+  "dependencies": {
+    "primus": "~1.5.2"
+  }
+}

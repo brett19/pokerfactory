@@ -1,0 +1,13 @@
+#lobby {
+  outline: 1px solid red;
+  width: 100%;
+}
+.tablelist {
+  width: 100%;
+}
+.tablelist tbody tr {
+  cursor: pointer;
+}
+.tablelist tbody tr:hover td {
+  background-color: orange;
+}
