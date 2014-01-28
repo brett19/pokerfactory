@@ -1,0 +1,3 @@
+#/bin/bash
+
+nodemon server.js frontend frontend1 -w frontend/ -w common/ -w node_modules/

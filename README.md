@@ -1,3 +1,3 @@
-StagPoker
+PokerFactory
 ==========================
-Repository for the StagPoker client and server.
+Repository for the PokerFactory client and server.

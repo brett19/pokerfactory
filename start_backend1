@@ -1,0 +1,3 @@
+#/bin/bash
+
+nodemon server.js backend backend1 -w backend/ -w common/ -w node_modules/

@@ -1,35 +1,35 @@
 var Express = require('express');
 var Primus = require('primus');
+var Logger = require('../common/logger');
+var Errors = require('../common/errors');
 var pubSub = require('../common/pubsub')();
 
 var app = Express();
 
-app.use("/", Express.static(__dirname + '/../client'));
+app.use("/", Express.static(__dirname + '/public'));
 
 var server = require('http').createServer(app);
 var primus = new Primus(server, {
   transformer: 'engine.io'
 });
 
-function handleLogin(client, data) {
+function cmd_login(client, data) {
   pubSub.request('auth', 'fblogin', {
     fbId: data.fbId,
     fbTkn: data.fbTkn
   }, function(err, res) {
-    if (err) {
-      client.write(['login_result', 'Temporary failure.', null]);
-      return;
-    } else if (res.error) {
-      client.write(['login_result', res.error, null]);
-      return;
+    if (err && err === true) {
+      return client.write(['login_result', null, Errors.tempInternal()]);
+    } else if (err) {
+      return client.write(['login_result', null, err]);
     }
 
     if (res.userId) {
       client.userId = res.userId;
     }
 
-    client.write(['login_result', null, res.userId]);
-  }, 2000);
+    client.write(['login_result', null, res]);
+  }, 4000);
 }
 
 primus.on('connection', function(spark) {
@@ -38,7 +38,7 @@ primus.on('connection', function(spark) {
   };
   spark._ninvoke = function(cmd, data) {
     if (cmd === 'login') {
-      handleLogin(spark, data);
+      cmd_login(spark, data);
     }
   };
 
@@ -50,21 +50,6 @@ primus.on('disconnection', function (spark) {
   spark.userId = 0;
 });
 
+server.listen(5000);
 
-
-
-
-
-
-var manager = ['localhost', 7600];
-var backends = [
-  ['localhost', 7700]
-];
-
-pubSub.bind('0.0.0.0', 7500);
-pubSub.connect(manager[0], manager[1]);
-for (var i = 0; i < backends.length; ++i) {
-  pubSub.connect(backends[i][0], backends[i][1]);
-}
-
-server.listen(4000);
+Logger.info('Started frontend service.');

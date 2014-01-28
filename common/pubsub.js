@@ -1,4 +1,5 @@
-var net = require('net');
+var Net = require('net');
+var HrTimer = require('./hrtimer');
 
 function PubSubLink(parent) {
   this.parent = parent;
@@ -13,7 +14,7 @@ PubSubLink.prototype.connect = function(host, port) {
   this.port = port;
 
   var tryConnect = function() {
-    var socket = net.createConnection(this.port, this.host, function() {
+    var socket = Net.createConnection(this.port, this.host, function() {
       this.socket = socket;
       this._handleConnect();
     }.bind(this));
@@ -126,10 +127,20 @@ PubSubLink.prototype._route = function(channel, event, data, seqNo) {
       this.subscriptions.splice(subscriptionIdx, 1);
     }
   } else if (channel === '$') {
-    this.parent._completeOp(event, false, data);
+    if (data.length < 2) {
+      this.parent._completeOp(event, null, data[0]);
+    } else {
+      this.parent._completeOp(event, data[1], data[0]);
+    }
   } else {
-    this.parent._route(channel, event, data, function(replydata) {
-      this.write(['$', seqNo, replydata]);
+    //var hrtmr = new HrTimer();
+    this.parent._route(channel, event, data, function(err, res) {
+      //console.log('event', channel, event, 'took', hrtmr);
+      if (!err) {
+        this.write(['$', seqNo, [res]]);
+      } else {
+        this.write(['$', seqNo, [res, err]]);
+      }
     }.bind(this));
   }
 };
@@ -144,7 +155,7 @@ function PubSub() {
   this.seqNo = 0;
   this.opHandlers = {};
 
-  this.socket = net.createServer(this._handleConnect.bind(this));
+  this.socket = Net.createServer(this._handleConnect.bind(this));
 }
 
 PubSub.prototype._handleConnect = function(client) {
@@ -194,10 +205,6 @@ PubSub.prototype.unsubscribe = function(channel) {
   }
 };
 
-PubSub.prototype.publish = function(channel, event, data) {
-  this.request(channel, event, data, 0, null);
-};
-
 PubSub.prototype._newPeerSubscription = function(peer, channel) {
   for (var seqNo in this.opHandlers) {
     if (this.opHandlers.hasOwnProperty(seqNo)) {
@@ -209,10 +216,11 @@ PubSub.prototype._newPeerSubscription = function(peer, channel) {
 
       var timer = opHandler[0];
       var callback = opHandler[1];
-      var channel = opHandler[2];
-      var event = opHandler[3];
-      var data = opHandler[4];
-      this.opHandlers[seqNo] = [timer, callback];
+      var hrtmr = opHandler[2];
+      var channel = opHandler[3];
+      var event = opHandler[4];
+      var data = opHandler[5];
+      this.opHandlers[seqNo] = [timer, callback, hrtmr];
 
       if (opHandler[2] !== channel) {
         continue;
@@ -221,35 +229,62 @@ PubSub.prototype._newPeerSubscription = function(peer, channel) {
       peer.write([channel, event, data, seqNo]);
     }
   }
-}
+};
 
-PubSub.prototype._writeAll = function(channel, data) {
+PubSub.prototype._writeAll = function(channel, event, data, seqNo, writeCount) {
   var totalWritten = 0;
+
+  var dataOut = [channel, event, data];
+  if (seqNo !== 0) dataOut.push(seqNo);
+
+  var startIdx = Math.floor(Math.random() * this.peers.length);
   for (var i = 0; i < this.peers.length; ++i) {
-    if (this.peers[i].subscriptions.indexOf(channel) === -1) {
+    var peerIdx = startIdx + i;
+    if (peerIdx >= this.peers.length) {
+      peerIdx -= this.peers.length;
+    }
+
+    if (this.peers[peerIdx].subscriptions.indexOf(channel) === -1) {
       continue;
     }
 
-    if (this.peers[i].write(data)) {
+    if (this.peers[peerIdx].write(dataOut)) {
       totalWritten++;
     }
+
+    if (writeCount > 0 && totalWritten >= writeCount) {
+      return totalWritten;
+    }
   }
+
+  if (this.subscriptions[channel]) {
+    this._route(channel, event, data);
+    totalWritten++;
+  }
+
   return totalWritten;
 };
 
+PubSub.prototype.publish = function(channel, event, data) {
+  this.request(channel, event, data, null, 0);
+};
+
 PubSub.prototype.request = function(channel, event, data, callback, timeout) {
+  var writeCount = callback ? 1 : 0;
+
   if (!timeout) {
-    this._writeAll([channel, event, data]);
+    this._writeAll(channel, event, data, 0, writeCount);
   } else {
     var seqNo = this.seqNo++;
 
     var invokeError = this._completeOp.bind(this, seqNo, true, null);
     var timer = setTimeout(invokeError, timeout);
+    var hrtmr = null;//new HrTimer();
 
-    if (this._writeAll(channel, [channel, event, data, seqNo]) > 0) {
-      this.opHandlers[seqNo] = [timer, callback];
+    if (this._writeAll(channel, event, data, seqNo, writeCount) > 0) {
+      this.opHandlers[seqNo] = [timer, callback, hrtmr];
     } else {
-      this.opHandlers[seqNo] = [timer, callback, channel, event, data];
+      this.opHandlers[seqNo] = [timer, callback, hrtmr, channel, event, data];
     }
   }
 };
@@ -279,4 +314,4 @@ PubSub.prototype._completeOp = function(seqNo, err, data) {
 };
 
 var pubSub = new PubSub();
-module.exports = function() { return pubSub; }
+module.exports = function() { return pubSub; };
