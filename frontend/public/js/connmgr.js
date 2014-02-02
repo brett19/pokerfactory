@@ -17,8 +17,10 @@ ConnManager.prototype.connect = function(uri) {
     self._connected = false;
   });
   primus.on('data', function(data) {
-    console.log('data', data[0], data[1]);
-    self.ninvoke(data[0], data[1]);
+    var cmd = data[0];
+    var err = data.length >= 3 ? data[2] : null;
+    var data = data.length >= 2 ? data[1] : null;
+    self.ninvoke(cmd, err, data);
   });
 
   this.socket = primus;
@@ -37,7 +39,8 @@ ConnManager.prototype.off = function(evt, handler) {
 ConnManager.prototype.nemit = function(cmd, data) {
   this.socket.write([cmd, data]);
 };
-ConnManager.prototype.ninvoke = function(cmd, data) {
+ConnManager.prototype.ninvoke = function(cmd, err, data) {
+  console.log('ninvoke', cmd, err, data);
   if (!this.eventHandlers[cmd]) {
     return;
   }
@@ -48,7 +51,7 @@ ConnManager.prototype.ninvoke = function(cmd, data) {
 
   var handlerList = this.eventHandlers[cmd];
   for (var i = 0; i < handlerList.length; ++i) {
-    handlerList[i](data);
+    handlerList[i](err, data);
   }
 };
 ConnManager.prototype.non = function(cmd, handler) {

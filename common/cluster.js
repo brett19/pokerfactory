@@ -101,34 +101,18 @@ module.exports.start = function(_name, _type) {
 
       for (var j = 0; j < node[2].length; ++j) {
         pubSub.connect(node[1], node[2][j]);
-        Logger.info('Cluster PubSub connected to ' + realNodeName(i, j) + ' (' + node[1] + ':' + node[2][j] + ')');
+        Logger.info('Cluster PubSub linked to ' + realNodeName(i, j) + ' (' + node[1] + ':' + node[2][j] + ')');
       }
     }
   }
 
-  // Start up the monitoring systems, report every minute.
-  Usage.lookup(process.pid, {keepHistory: true}, function(){});
-  setInterval(function() {
-    Usage.lookup(process.pid, {keepHistory: true}, function(err, result) {
-      if (err) {
-        return Logger.warn(err);
-      }
-      pubSub.publish('mgmt', 'sys_stats', {
-        procName: process.nodeName,
-        procMem: result.memory,
-        procCpu: result.cpu,
-        hostName: os.hostname(),
-        hostPlatform: os.platform(),
-        hostArch: os.arch(),
-        hostRelease: os.release(),
-        hostUptime: os.uptime(),
-        hostCpu: os.loadavg()[0],
-        hostTotalMem: os.totalmem(),
-        hostFreeMem: os.freemem(),
-        hostNumCpus: os.cpus().length
-      });
-    });
-  }, 60000);
+  // Start a handler
+  function gracefulShutdown() {
+    pubSub.shutdown();
+    process.exit(0);
+  }
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
 
   Logger.info('Launching service');
   require(appPath);

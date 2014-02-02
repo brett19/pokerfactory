@@ -1,31 +1,72 @@
 
 connManager.connect('/');
 connManager.on('open', function() {
-  connManager.nemit('sub_lobby');
+  //connManager.nemit('sub_lobby');
 });
 
-connManager.non('game_lobby', function(data) {
-  console.log('lobby data', data);
+var lobbyCache = {};
+var lobbyData = {};
+connManager.non('rooms_list', function(err, data) {
+  lobbyCache = data;
+  updateLobbyData();
+});
+connManager.non('roomgroup_updated', function(err, data) {
+  lobbyCache[data.group_name] = data.rooms;
+  updateLobbyData();
+});
+connManager.non('roomgroup_gone', function(err, data) {
+  delete lobbyCache[data.group_name];
+  updateLobbyData();
+})
+
+function updateLobbyData() {
+  lobbyData = {
+    cashGames: [],
+    sitngos: [],
+    tournys: []
+  };
+
+  for (var i in lobbyCache) {
+    if (lobbyCache.hasOwnProperty(i)) {
+      var group = lobbyCache[i];
+
+      for (var j = 0; j < group.cashGames.length; ++j) {
+        lobbyData.cashGames.push(group.cashGames[j]);
+      }
+      for (var j = 0; j < group.sitngos.length; ++j) {
+        lobbyData.sitngos.push(group.sitngos[j]);
+      }
+      for (var j = 0; j < group.tournys.length; ++j) {
+        lobbyData.tournys.push(group.tournys[j]);
+      }
+    }
+  }
+
+  updateLobbyUi();
+}
+
+function updateLobbyUi() {
+  console.log('lobby data', lobbyData);
 
   var cashGameListEl = $('#cashgamelist tbody');
   cashGameListEl.empty();
 
-  for (var i = 0; i < data.cashGames.length; ++i) {
-    var cashGame = data.cashGames[i];
+  for (var i = 0; i < lobbyData.cashGames.length; ++i) {
+    var cashGame = lobbyData.cashGames[i];
 
     var cashGameEl = $('<tr />');
     cashGameEl.append('<td>' + cashGame.name + '</td>');
     cashGameEl.append(
       '<td>' +
-      Utils.fmtDollarAmt(cashGame.smallBlind) +
-      '/' +
-      Utils.fmtDollarAmt(cashGame.bigBlind) +
-      '</td>');
+        Utils.fmtDollarAmt(cashGame.smallBlind) +
+        '/' +
+        Utils.fmtDollarAmt(cashGame.bigBlind) +
+        '</td>');
     cashGameEl.append('<td>' + cashGame.seatedCount + '/' + cashGame.seatCount + '</td>');
 
     (function (cashGameId) {
       cashGameEl.click(function() {
-        connManager.nemit('game_joincashroom', {
+        connManager.nemit('joincashroom', {
           id: cashGameId
         });
       });
@@ -33,9 +74,10 @@ connManager.non('game_lobby', function(data) {
 
     cashGameListEl.append(cashGameEl);
   }
-});
+}
 
-connManager.non('game_openroom', function(data) {
+
+connManager.non('room_joined', function(err, data) {
   var el = $('<div>Test Tab ' + data.name + '</div>')
   $('#tabContent').append(el);
 
@@ -50,9 +92,9 @@ function doFbLogin() {
 }
 
 function handleFbLogin(fbId, fbTkn) {
-  connManager.nemit('fblogin', {
-    fbId: fbId
-    //,fbTkn: fbTkn
+  connManager.nemit('login', {
+    fbId: fbId,
+    fbTkn: fbTkn
   });
 }
 

@@ -1,10 +1,22 @@
 var Net = require('net');
-var HrTimer = require('./hrtimer');
+var Uuid = require('node-uuid');
+var Util = require('util');
+var Events = require('events');
+
+/*
+ Special Channels
+ + : Add new subscription
+ - : Remove a subscription
+ $ : Reply to request operation
+ % : Reply to request as not-accepted
+ */
 
 function PubSubLink(parent) {
+  this.uuid = Uuid.v4();
   this.parent = parent;
   this.socket = null;
   this.subscriptions = [];
+  this._closing = false;
 
   this.__handleData = this._handleData.bind(this);
 }
@@ -14,19 +26,40 @@ PubSubLink.prototype.connect = function(host, port) {
   this.port = port;
 
   var tryConnect = function() {
-    var socket = Net.createConnection(this.port, this.host, function() {
-      this.socket = socket;
-      this._handleConnect();
-    }.bind(this));
+    if (this._closing) {
+      // Don't try to reconnect if we are purposely closing this socket.
+      return;
+    }
+
+    var connectTimeout = null;
+    var socket = null;
+    try {
+      socket = Net.createConnection(this.port, this.host, function() {
+        clearTimeout(connectTimeout);
+        this.socket = socket;
+        this._handleConnect();
+        this.parent.emit('connected', this);
+      }.bind(this));
+    } catch (e) {
+      return tryConnect();
+    }
+
+    connectTimeout = setTimeout(function(){
+      socket.destroy();
+      tryConnect();
+    }.bind(this), 2500);
 
     socket.setNoDelay(true);
     socket.on('data', this.__handleData);
-    socket.on('error', function(e) {
-      this.socket = null;
-    }.bind(this));
+    socket.on('error', function(){});
     socket.on('close', function() {
+      if (this.socket !== socket) {
+        return;
+      }
+
       this.socket = null;
       tryConnect();
+      this.parent.emit('disconnected', this);
     }.bind(this));
   }.bind(this);
   tryConnect();
@@ -48,15 +81,23 @@ PubSubLink.prototype.attachSocket = function(socket) {
 
   socket.setNoDelay(true);
   socket.on('data', this.__handleData);
-  socket.on('error', function(e) {
-    this.socket = null;
-  }.bind(this));
+  socket.on('error', function(){});
   socket.on('close', function() {
-    this.parent.removePeer(this);
     this.socket = null;
+    this.parent.removePeer(this);
+    this.parent.emit('disconnected', this);
   }.bind(this));
 
   this._handleConnect();
+  this.parent.emit('connected', this);
+};
+
+PubSubLink.prototype.shutdown = function() {
+  this._closing = true;
+
+  if (this.socket) {
+    this.socket.end();
+  }
 };
 
 PubSubLink.prototype.write = function(data) {
@@ -119,8 +160,11 @@ PubSubLink.prototype._handleData = function(data) {
 
 PubSubLink.prototype._route = function(channel, event, data, seqNo) {
   if (channel === '+') {
-    this.subscriptions.push(event);
-    this.parent._newPeerSubscription(this, channel);
+    var subscriptionIdx = this.subscriptions.indexOf(event);
+    if (subscriptionIdx === -1) {
+      this.subscriptions.push(event);
+      this.parent._newPeerSubscription(this, event);
+    }
   } else if (channel === '-') {
     var subscriptionIdx = this.subscriptions.indexOf(event);
     if (subscriptionIdx !== -1) {
@@ -132,16 +176,33 @@ PubSubLink.prototype._route = function(channel, event, data, seqNo) {
     } else {
       this.parent._completeOp(event, data[1], data[0]);
     }
+  } else if (channel === '%') {
+    var subscriptionIdx = this.subscriptions.indexOf(event);
+    if (subscriptionIdx !== -1) {
+      console.warn('attempt to transmit to unsubscribed server : ', event);
+      this.subscriptions.splice(subscriptionIdx, 1);
+    }
+    this.parent._retransmitOp(data);
   } else {
-    //var hrtmr = new HrTimer();
-    this.parent._route(channel, event, data, function(err, res) {
-      //console.log('event', channel, event, 'took', hrtmr);
+    var replyCount = 0;
+    var replyHandler = function(err, res) {
+      if (replyCount > 0) {
+        console.warn('tried to send more than one reply');
+        console.trace();
+        return;
+      }
+      replyCount++;
+
       if (!err) {
         this.write(['$', seqNo, [res]]);
       } else {
         this.write(['$', seqNo, [res, err]]);
       }
-    }.bind(this));
+    }.bind(this);
+
+    if (!this.parent._route(this, channel, event, data, replyHandler)) {
+      this.write(['%', channel, seqNo]);
+    }
   }
 };
 
@@ -150,13 +211,15 @@ PubSubLink.prototype._route = function(channel, event, data, seqNo) {
 
 
 function PubSub() {
+  this.loopback = { uuid: Uuid.v4() };
   this.subscriptions = {};
   this.peers = [];
-  this.seqNo = 0;
+  this.seqNo = 1;
   this.opHandlers = {};
 
   this.socket = Net.createServer(this._handleConnect.bind(this));
 }
+Util.inherits(PubSub, Events.EventEmitter);
 
 PubSub.prototype._handleConnect = function(client) {
   var server = new PubSubLink(this);
@@ -181,57 +244,75 @@ PubSub.prototype.removePeer = function(peer) {
   }
 };
 
-PubSub.prototype.subscribe = function(channel, callback) {
-  if (this.subscriptions[channel]) {
-    // Already subscribed
-    return;
+PubSub.prototype.shutdown = function() {
+  for (var i = 0; i < this.peers.length; ++i) {
+    this.peers[i].shutdown();
+  }
+  this.peers = [];
+};
+
+PubSub.prototype.subscribe = function(channel, handler) {
+  if (!this.subscriptions[channel]) {
+    this.subscriptions[channel] = [];
+  } else {
+    var handlerIdx = this.subscriptions[channel].indexOf(handler);
+    if (handlerIdx !== -1) {
+      console.warn('handler tried to double-subscribe');
+      return;
+    }
   }
 
-  this.subscriptions[channel] = callback;
-  for (var i = 0; i < this.peers.length; ++i) {
-    this.peers[i].subscribe(channel);
+  this.subscriptions[channel].push(handler);
+
+  if (this.subscriptions[channel].length === 1) {
+    for (var i = 0; i < this.peers.length; ++i) {
+      this.peers[i].subscribe(channel);
+    }
   }
 };
 
-PubSub.prototype.unsubscribe = function(channel) {
+PubSub.prototype.unsubscribe = function(channel, handler) {
   if (!this.subscriptions[channel]) {
-    // Not subscribed
+    console.warn('tried to unsubscribe a non-existant channel');
     return;
   }
 
-  this.subscriptions[channel] = null;
-  for (var i = 0; i < this.peers.length; ++i) {
-    this.peers[i].unsubscribe(channel);
+  var handlerIdx = this.subscriptions[channel].indexOf(handler);
+  if (handlerIdx === -1) {
+    console.warn('tried to unsubscribe a unconnected handler');
+    return;
+  }
+
+  this.subscriptions[channel].splice(handlerIdx, 1);
+
+  if (this.subscriptions[channel].length === 0) {
+    delete this.subscriptions[channel];
+    for (var i = 0; i < this.peers.length; ++i) {
+      this.peers[i].unsubscribe(channel);
+    }
   }
 };
 
 PubSub.prototype._newPeerSubscription = function(peer, channel) {
   for (var seqNo in this.opHandlers) {
     if (this.opHandlers.hasOwnProperty(seqNo)) {
-      var opHandler = this.opHandlers[seqNo];
+      var msg = this.opHandlers[seqNo];
 
-      if (opHandler.length < 5) {
+      if (msg[2] > 0) {
+        continue;
+      } else if (msg[3] !== channel) {
         continue;
       }
 
-      var timer = opHandler[0];
-      var callback = opHandler[1];
-      var hrtmr = opHandler[2];
-      var channel = opHandler[3];
-      var event = opHandler[4];
-      var data = opHandler[5];
-      this.opHandlers[seqNo] = [timer, callback, hrtmr];
-
-      if (opHandler[2] !== channel) {
-        continue;
-      }
-
+      var channel = msg[3];
+      var event = msg[4];
+      var data = msg[5];
       peer.write([channel, event, data, seqNo]);
     }
   }
 };
 
-PubSub.prototype._writeAll = function(channel, event, data, seqNo, writeCount) {
+PubSub.prototype._writeAll = function(channel, event, data, seqNo, emitGlobal) {
   var totalWritten = 0;
 
   var dataOut = [channel, event, data];
@@ -252,17 +333,17 @@ PubSub.prototype._writeAll = function(channel, event, data, seqNo, writeCount) {
       totalWritten++;
     }
 
-    if (writeCount > 0 && totalWritten >= writeCount) {
-      return totalWritten;
+    if (!emitGlobal && totalWritten >= 1) {
+      return true;
     }
   }
 
   if (this.subscriptions[channel]) {
-    this._route(channel, event, data);
+    this._route(this.loopback, channel, event, data);
     totalWritten++;
   }
 
-  return totalWritten;
+  return totalWritten > 0;
 };
 
 PubSub.prototype.publish = function(channel, event, data) {
@@ -270,33 +351,55 @@ PubSub.prototype.publish = function(channel, event, data) {
 };
 
 PubSub.prototype.request = function(channel, event, data, callback, timeout) {
-  var writeCount = callback ? 1 : 0;
-
-  if (!timeout) {
-    this._writeAll(channel, event, data, 0, writeCount);
+  if (!callback) {
+    this._writeAll(channel, event, data, 0, true);
   } else {
+    if (!timeout) {
+      timeout = 4000;
+    }
+
     var seqNo = this.seqNo++;
 
     var invokeError = this._completeOp.bind(this, seqNo, true, null);
     var timer = setTimeout(invokeError, timeout);
-    var hrtmr = null;//new HrTimer();
+    var message = [timer, callback, 0, channel, event, data];
 
-    if (this._writeAll(channel, event, data, seqNo, writeCount) > 0) {
-      this.opHandlers[seqNo] = [timer, callback, hrtmr];
-    } else {
-      this.opHandlers[seqNo] = [timer, callback, hrtmr, channel, event, data];
+    if (this._writeAll(channel, event, data, seqNo, false)) {
+      message[2]++;
     }
+
+    this.opHandlers[seqNo] = message;
   }
 };
 
-PubSub.prototype._route = function(channel, event, data, callback) {
+PubSub.prototype._route = function(source, channel, event, data, callback) {
   var subscription = this.subscriptions[channel];
   if (!subscription) {
     return false;
   }
 
-  subscription(event, data, callback);
+  for (var i = 0; i < subscription.length; ++i) {
+    subscription[i](source, event, data, callback);
+  }
   return true;
+};
+
+PubSub.prototype._retransmitOp = function(seqNo) {
+  var msg = this.opHandlers[seqNo];
+  if (!msg) {
+    return;
+  }
+
+  // Remove the previous transmission
+  msg[2]--;
+
+  // Try to send again
+  var channel = msg[3];
+  var event = msg[4];
+  var data = msg[5];
+  if (this._writeAll(channel, event, data, seqNo, false)) {
+    msg[2]++;
+  }
 };
 
 PubSub.prototype._completeOp = function(seqNo, err, data) {

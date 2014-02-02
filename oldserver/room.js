@@ -3,8 +3,8 @@ var Logger = require('./logger');
 var poker = require('./poker');
 
 function Room(id, type, name, tableOpts) {
-  this.id = id;
   this.uuid = Uuid.v4();
+  this.id = this.uuid;
   this.name = name;
   this.type = type;
   this.tableOpts = tableOpts;
@@ -12,31 +12,31 @@ function Room(id, type, name, tableOpts) {
   this.table = new poker.Table(this.uuid, tableOpts);
   this.users = [];
 
-  this.on_table('player_sat', this.onTable_PlayerSat);
-  this.on_table('player_stood', this.onTable_PlayerStood);
-  this.on_table('player_satin', this.onTable_PlayerSatIn);
-  this.on_table('player_satout', this.onTable_PlayerSatOut);
-  this.on_table('player_to_pot', this.onTable_PlayerToPot);
-  this.on_table('pot_to_player', this.onTable_PotToPlayer);
-  this.on_table('dealt_flop', this.onTable_DealtFlop);
-  this.on_table('dealt_turn', this.onTable_DealtTurn);
-  this.on_table('dealt_river', this.onTable_DealtRiver);
-  this.on_table('dealt_hands', this.onTable_DealtHands);
-  this.on_table('player_balance_changed', this.onTable_PlayerBalanceChanged);
-  this.on_table('player_bet_changed', this.onTable_PlayerBetChanged);
-  this.on_table('dealer_moved', this.onTable_DealerMoved);
-  this.on_table('action_moved', this.onTable_ActionMoved);
-  this.on_table('pot_raked', this.onTable_PotRaked);
-  this.on_table('hand_finished', this.onTable_HandFinished);
-  this.on_table('player_show_hand', this.onTable_PlayerExposeCards);
-  this.on_table('player_folded', this.onTable_PlayerFolded);
-  this.on_table('player_checked', this.onTable_PlayerChecked);
-  this.on_table('player_called', this.onTable_PlayerCalled);
-  this.on_table('player_bet', this.onTable_PlayerBet);
-  this.on_table('player_raised', this.onTable_PlayerRaised);
+  this._tableOn('player_sat', this.onTable_PlayerSat);
+  this._tableOn('player_stood', this.onTable_PlayerStood);
+  this._tableOn('player_satin', this.onTable_PlayerSatIn);
+  this._tableOn('player_satout', this.onTable_PlayerSatOut);
+  this._tableOn('player_to_pot', this.onTable_PlayerToPot);
+  this._tableOn('pot_to_player', this.onTable_PotToPlayer);
+  this._tableOn('dealt_flop', this.onTable_DealtFlop);
+  this._tableOn('dealt_turn', this.onTable_DealtTurn);
+  this._tableOn('dealt_river', this.onTable_DealtRiver);
+  this._tableOn('dealt_hands', this.onTable_DealtHands);
+  this._tableOn('player_balance_changed', this.onTable_PlayerBalanceChanged);
+  this._tableOn('player_bet_changed', this.onTable_PlayerBetChanged);
+  this._tableOn('dealer_moved', this.onTable_DealerMoved);
+  this._tableOn('action_moved', this.onTable_ActionMoved);
+  this._tableOn('pot_raked', this.onTable_PotRaked);
+  this._tableOn('hand_finished', this.onTable_HandFinished);
+  this._tableOn('player_show_hand', this.onTable_PlayerExposeCards);
+  this._tableOn('player_folded', this.onTable_PlayerFolded);
+  this._tableOn('player_checked', this.onTable_PlayerChecked);
+  this._tableOn('player_called', this.onTable_PlayerCalled);
+  this._tableOn('player_bet', this.onTable_PlayerBet);
+  this._tableOn('player_raised', this.onTable_PlayerRaised);
 }
 
-Room.prototype.on_table = function(evt, handler) {
+Room.prototype._tableOn = function(evt, handler) {
   this.table.on(evt, function() {
     handler.apply(this, arguments);
   }.bind(this));
