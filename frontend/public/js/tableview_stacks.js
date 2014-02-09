@@ -36,6 +36,8 @@ function TableView_Stacks(table) {
   this.mainPot = null;
   this.sidePot = null;
 
+  this.actQueue = [];
+
   this.setSeatCount(table.seats.length);
 }
 
@@ -46,22 +48,6 @@ TableView_Stacks.prototype.setSeatCount = function(seatCount) {
   }
   this.chipPos = BET_POSITION[seatCount];
   this.seatPos = PLRBAL_POSITION[seatCount];
-};
-
-TableView_Stacks.prototype.setSeatBet = function(seatIdx, amount) {
-  if (this.betStacks[seatIdx]) {
-    this.betStacks[seatIdx].remove();
-    this.betStacks[seatIdx] = null;
-  }
-
-  if (amount <= 0) {
-    return;
-  }
-
-  var stackPos = this.chipPos[seatIdx];
-  var stack = new TableView_Stack(this.table, amount);
-  stack.setPosition(stackPos[0], stackPos[1]);
-  this.betStacks[seatIdx] = stack;
 };
 
 TableView_Stacks.prototype._splitStack = function(stack, amount) {
@@ -106,7 +92,65 @@ TableView_Stacks.prototype._joinStacks = function(stack1, stack2) {
   return newStack;
 };
 
+TableView_Stacks.prototype._nextAct = function() {
+  if (this.actQueue.length === 0) {
+    return;
+  }
+
+  var act = this.actQueue.shift();
+  var func = act[0];
+  var args = act[1];
+  args.push(this._nextAct.bind(this));
+  func.apply(this, args);
+};
+
+TableView_Stacks.prototype._enqueueAct = function(func, params) {
+  this.actQueue.push([func, params]);
+  if (this.actQueue.length === 1) {
+    this._nextAct();
+  } else {
+    console.warn('multiple overlapping stack moves; queued');
+  }
+};
+
+TableView_Stacks.prototype.setSeatBet = function(seatIdx, amount) {
+  this._enqueueAct(this._setSeatBet, [seatIdx, amount]);
+};
+
 TableView_Stacks.prototype.moveBetToPot = function(seatIdx, potNum, amount) {
+  this._enqueueAct(this._moveBetToPot, [seatIdx, potNum, amount]);
+};
+
+TableView_Stacks.prototype.movePotToSeat = function(potNum, seatIdx, amount) {
+  this._enqueueAct(this._movePotToSeat, [potNum, seatIdx, amount]);
+};
+
+TableView_Stacks.prototype.rakePot = function(potNum, amount) {
+  this._enqueueAct(this._rakePot, [potNum, amount]);
+};
+
+TableView_Stacks.prototype.setPotAmounts = function(pots) {
+  this._enqueueAct(this._setPotAmounts, [pots]);
+};
+
+TableView_Stacks.prototype._setSeatBet = function(seatIdx, amount, done) {
+  if (this.betStacks[seatIdx]) {
+    this.betStacks[seatIdx].remove();
+    this.betStacks[seatIdx] = null;
+  }
+
+  if (amount <= 0) {
+    return;
+  }
+
+  var stackPos = this.chipPos[seatIdx];
+  var stack = new TableView_Stack(this.table, amount);
+  stack.setPosition(stackPos[0], stackPos[1]);
+  this.betStacks[seatIdx] = stack;
+  done();
+};
+
+TableView_Stacks.prototype._moveBetToPot = function(seatIdx, potNum, amount, done) {
   var betStack = this.betStacks[seatIdx];
 
   var splitStacks = this._splitStack(betStack, amount);
@@ -125,10 +169,11 @@ TableView_Stacks.prototype.moveBetToPot = function(seatIdx, potNum, amount) {
     } else {
       self.sidePot = self._joinStacks(self.sidePot, moveStack);
     }
+    done();
   });
 };
 
-TableView_Stacks.prototype.movePotToSeat = function(potNum, seatIdx, amount) {
+TableView_Stacks.prototype._movePotToSeat = function(potNum, seatIdx, amount, done) {
   var moveStack = null;
 
   if (potNum === 0) {
@@ -144,10 +189,11 @@ TableView_Stacks.prototype.movePotToSeat = function(potNum, seatIdx, amount) {
   var stackPos = this.seatPos[seatIdx];
   moveStack.moveTo(stackPos[0], stackPos[1], 1000, function() {
     moveStack.remove();
+    done();
   });
 };
 
-TableView_Stacks.prototype.rakePot = function(potNum, amount) {
+TableView_Stacks.prototype._rakePot = function(potNum, amount, done) {
   console.log('raking pot', potNum, amount);
   if (potNum === 0) {
     var newStacks = this._splitStack(this.mainPot, amount);
@@ -158,9 +204,10 @@ TableView_Stacks.prototype.rakePot = function(potNum, amount) {
     this.sidePot = newStacks[0];
     newStacks[1].remove();
   }
+  done();
 };
 
-TableView_Stacks.prototype.setPotAmounts = function(pots) {
+TableView_Stacks.prototype._setPotAmounts = function(pots, done) {
   if (this.mainPot) {
     this.mainPot.remove();
     this.mainPot = null;
@@ -187,4 +234,6 @@ TableView_Stacks.prototype.setPotAmounts = function(pots) {
     this.sidePot = new TableView_Stack(this.table, sidePotAmount);
     this.sidePot.setPosition(SIDEPOT_POSITION[0], SIDEPOT_POSITION[1]);
   }
+
+  done();
 };

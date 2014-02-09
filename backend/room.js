@@ -199,7 +199,8 @@ Room.prototype.onUser_SitDown = function(data) {
 
     var userName = rows[0].username;
 
-    // Logic here is to remove after since playerSit can cause a hand start.
+    // Logic here is to remove after since playerSit will likely emit
+    //  a playerSat event, which we need this userId to do.
     var roomUser = new RoomUser(this, data.userId);
     this.seats[data.seatIdx] = roomUser;
 

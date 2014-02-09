@@ -14,8 +14,6 @@ var primus = new Primus(server, {
   transformer: 'engine.io'
 });
 
-
-
 function nemitAll(cmd, data) {
   for (var i = 0; i < connectedClients.length; ++i) {
     if (!connectedClients[i].userId) {
@@ -240,11 +238,16 @@ primus.on('connection', function(spark) {
     pubSub.publish('roomact_' + roomId, event, data);
   };
 
+  spark.msgIdx = 0;
   spark.nemit = function(cmd, err, data) {
+    var msgIdx = spark.msgIdx++;
+
+    console.log('nemit', msgIdx, cmd, data, err);
+
     if (!err) {
-      spark.write([cmd, data, err]);
+      spark.write([msgIdx, cmd, data, err]);
     } else {
-      spark.write([cmd, data]);
+      spark.write([msgIdx, cmd, data]);
     }
   };
   spark._ninvoke = function(cmd, data) {

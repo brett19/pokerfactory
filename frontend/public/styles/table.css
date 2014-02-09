@@ -33,6 +33,8 @@
   width: 419px;
   height: 132px;
   outline: 1px dashed blue;
+  overflow: auto;
+  word-wrap: break-word;
 }
 .chatInput .chatBox {
   position: absolute;

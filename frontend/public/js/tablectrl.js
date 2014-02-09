@@ -23,11 +23,12 @@ function TableController(id, name, state) {
   this.ui.setPots(state.pots);
   this.ui.setCommCards(state.communityCards);
   this.ui.setCanSit(this.mySeatIdx === -1);
+  this.ui.setOptions(state.myOptions);
   this.ui.moveAction(
     state.actionPos,
     state.actionTimer,
     state.actionTimerLen,
-    state.actionPos === this.mySeatIdx
+    this.mySeatIdx !== -1 && state.actionPos === this.mySeatIdx
   );
 
   this.ui.on('actSitDown', this.actSitDown.bind(this));
@@ -191,7 +192,7 @@ TableController.prototype.nonTable_DealerMoved = function(err, data) {
 };
 
 TableController.prototype.nonTable_ActionMoved = function(err, data) {
-  var isMe = data.seatIdx === this.mySeatIdx;
+  var isMe = this.mySeatIdx !== -1 && data.seatIdx === this.mySeatIdx;
   this.ui.moveAction(data.seatIdx, data.timer, data.timer, isMe);
 };
 

@@ -9,6 +9,48 @@ function ConnManager()
 ConnManager.prototype.connect = function(uri) {
   var primus = new Primus(uri);
 
+  var nextMsgIdx = 0;
+  var msgQueue = [];
+  function pushNewMsg(data) {
+    if (data[0] !== nextMsgIdx) {
+      console.warn('OUT OF ORDER MESSAGE', data[0], nextMsgIdx);
+    }
+
+    msgQueue.push(data);
+    flushMsgQueue();
+  }
+  function flushMsgQueue() {
+    var foundOne = false;
+    for (var i = 0; i < msgQueue.length; ++i) {
+      var data = msgQueue[i];
+
+      var msgIdx = data[0];
+
+      if (msgIdx !== nextMsgIdx) {
+        continue;
+      }
+
+      var cmd = data[1];
+      var err = data.length >= 4 ? data[3] : null;
+      var data = data.length >= 3 ? data[2] : null;
+
+      console.log('ninvoke', msgIdx, cmd, err, data);
+      self.ninvoke(cmd, err, data);
+
+      // Remove the message
+      msgQueue.splice(i, 1);
+
+      // Set up for the next one
+      nextMsgIdx = msgIdx + 1;
+      foundOne = true;
+      break;
+    }
+
+    if (foundOne) {
+      return flushMsgQueue();
+    }
+  }
+
   var self = this;
   primus.on('open', function() {
     self._connected = true;
@@ -17,10 +59,7 @@ ConnManager.prototype.connect = function(uri) {
     self._connected = false;
   });
   primus.on('data', function(data) {
-    var cmd = data[0];
-    var err = data.length >= 3 ? data[2] : null;
-    var data = data.length >= 2 ? data[1] : null;
-    self.ninvoke(cmd, err, data);
+    pushNewMsg(data);
   });
 
   this.socket = primus;
@@ -40,7 +79,6 @@ ConnManager.prototype.nemit = function(cmd, data) {
   this.socket.write([cmd, data]);
 };
 ConnManager.prototype.ninvoke = function(cmd, err, data) {
-  console.log('ninvoke', cmd, err, data);
   if (!this.eventHandlers[cmd]) {
     return;
   }

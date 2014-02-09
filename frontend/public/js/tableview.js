@@ -83,6 +83,7 @@ TableView.prototype.moveBetToPot = function(seatIdx, potIdx, val) {
 
 TableView.prototype.movePotToSeat = function(potIdx, seatIdx, val) {
   this.stacks.movePotToSeat(potIdx, seatIdx, val);
+  this.seats[seatIdx].addBalance(val);
 };
 
 TableView.prototype.dealHands = function(hands) {
@@ -133,6 +134,10 @@ TableView.prototype.moveAction = function(seatIdx, timerCur, timerLen, isMe) {
 };
 
 TableView.prototype.setOptions = function(opts) {
+  if (!opts) {
+    return;
+  }
+
   this.options.setBetRange(opts.bet_min, opts.bet_max, opts.bet_pot);
   this.options.setCanFold(opts.fold);
   this.options.setCanCheck(opts.check);
@@ -201,5 +206,8 @@ TableView.prototype.addChatMsg = function(sender, msg) {
     text += sender + ': ';
   }
   text += msg;
-  this.el.find('.chatText').append(text + '<br />');
+
+  var chatTextEl = this.el.find('.chatText');
+  chatTextEl.append(text + '<br />');
+  chatTextEl.scrollTop(chatTextEl[0].scrollHeight);
 };

@@ -88,12 +88,10 @@ TableView_Options.prototype.off = function(event, handler) {
 };
 
 TableView_Options.prototype.show = function() {
-  console.log('SHOW PANEL');
   this.el.find('.optionsPanel').show();
 };
 
 TableView_Options.prototype.hide = function() {
-  console.log('HIDE PANEL');
   this.el.find('.optionsPanel').hide();
 };
 

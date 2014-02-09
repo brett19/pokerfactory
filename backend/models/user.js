@@ -1,4 +1,5 @@
 var Logger = require('../../common/logger');
+var Errors = require('../../common/errors');
 var db = require('../database')();
 
 function User() {

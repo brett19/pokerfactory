@@ -15,6 +15,7 @@ function TableViewSeat(table, seatIdx) {
   this.table = table;
   this.seatIdx = seatIdx;
   this.holeCards = [];
+  this.balance = 0;
 
   this.el = $('<div />');
   this.el.addClass('player');
@@ -117,7 +118,12 @@ TableViewSeat.prototype.setName = function(name) {
 };
 
 TableViewSeat.prototype.setBalance = function(amount) {
+  this.balance = amount;
   this.el.find('.playerBalance').text(Utils.fmtChipAmt(amount));
+};
+
+TableViewSeat.prototype.addBalance = function(amount) {
+  this.setBalance(this.balance + amount);
 };
 
 TableViewSeat.prototype.setSittingOut = function(val) {

@@ -169,19 +169,10 @@ PokerTable.prototype.playerSit = function(seatIdx, player) {
     return false;
   }
 
-  // TODO: Do something like this again?
-  /*
-  var currentSeatIdx = ...;
-  if (currentSeatIdx !== -1) {
-    Logger.warn('cannot sit, already at table');
-    return false;
-  }
-  */
-
   this.seats[seatIdx] = player;
   this.emit('player_sat', seatIdx, player);
 
-  this.tryBeginHand();
+  process.nextTick(this.tryBeginHand.bind(this));
   return true;
 };
 
@@ -251,7 +242,7 @@ PokerTable.prototype.playerSitIn = function(seatIdx) {
   player.sittingOut = false;
   this.emit('player_satin', seatIdx);
 
-  this.tryBeginHand();
+  process.nextTick(this.tryBeginHand.bind(this));
   return true;
 };
 

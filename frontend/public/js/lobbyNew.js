@@ -8,18 +8,23 @@ var lobbyData = {};
 connManager.non('rooms_list', function(err, data) {
   lobbyCache = data;
   updateLobbyData();
-
-  // TEST CODE
-  //devAutoJoinRoom();
+  autoAutoJoinRoom();
 });
 
-function devAutoJoinRoom() {
-  var cashGames = lobbyData.cashGames;
-  for (var j = 0; j < cashGames.length; ++i) {
-    connManager.nemit('joincashroom', {
-      id: cashGames[j].id
-    });
+function autoAutoJoinRoom() {
+  var roomName = OPTIONS['cashroom'];
+  if (!roomName) {
     return;
+  }
+
+  var cashGames = lobbyData.cashGames;
+  for (var j = 0; j < cashGames.length; ++j) {
+    if (cashGames[j].name === roomName) {
+      connManager.nemit('joincashroom', {
+        id: cashGames[j].id
+      });
+      return;
+    }
   }
 }
 
