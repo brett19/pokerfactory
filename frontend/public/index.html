@@ -7,14 +7,28 @@
     <script src="js/createjs-2013.12.12.min.js"></script>
     <script src="/primus/primus.js"></script>
     <script src="js/utils.js"></script>
+    <script src="js/utils_inherits.js"></script>
+    <script src="js/eventemitter.js"></script>
     <script src="js/connmgr.js"></script>
-    <script src="js/gameView.js"></script>
-    <script src="js/lobbyNew.js"></script>
+    <script src="js/gameview.js"></script>
+    <script src="js/lobbyview.js"></script>
     <script src="js/tableview.js"></script>
-    <script src="js/tablecontroller.js"></script>
+    <script src="js/tableview_card.js"></script>
+    <script src="js/tableview_stack.js"></script>
+    <script src="js/tableview_stacks.js"></script>
+    <script src="js/tableview_seat.js"></script>
+    <script src="js/tableview_commcards.js"></script>
+    <script src="js/tableview_options.js"></script>
+    <script src="js/tablectrl.js"></script>
+    <script src="js/tablectrl_seat.js"></script>
+    <script src="js/lobbyNew.js"></script>
 
     <link rel="stylesheet" type="text/css" href="styles/style.css">
     <link rel="stylesheet" type="text/css" href="styles/lobbyNew.css">
+    <link rel="stylesheet" type="text/css" href="styles/table.css">
+    <link rel="stylesheet" type="text/css" href="styles/cards.css">
+    <link rel="stylesheet" type="text/css" href="styles/chips.css">
+    <link rel="stylesheet" type="text/css" href="styles/player.css">
 </head>
 <body>
     <div id="fb-root"></div>
@@ -52,6 +66,46 @@
                     <tbody>
                     </tbody>
                 </table>
+            </div>
+            <div id="tableTemplate" class="template table">
+                <div class="gameOptions">
+                    <button class="actStand">Stand Up</button>
+                    <button class="actSitIn">Sit In</button>
+                    <button class="actSitOut">Sit Out</button>
+                </div>
+                <div class="tableWrap">
+                    <div class="chipStacks"></div>
+                    <div class="playerCards"></div>
+                    <div class="playerPanels"></div>
+                </div>
+                <div class="chatWindow">
+                    <div class="chatText"></div>
+                    <div class="chatInput">
+
+                        <input type="text" class="chatBox" />
+                        <button class="chatSubmit">Send</button>
+                    </div>
+                </div>
+                <div class="optionsWindow">
+                    <div class="optionsPanel" style="display:none;">
+                        <div class="btnOptFold">Fold</div>
+                        <div class="btnOptCheckCall btnOptCheck">Check</div>
+                        <div class="btnOptCheckCall btnOptCall">Call $999,999</div>
+                        <div class="btnOptBetRaise btnOptBet">Bet $999,999</div>
+                        <div class="btnOptBetRaise btnOptRaise">Raise $999,999</div>
+
+                        <div class="betSlider">
+                            <div class="betSliderBtn betSliderMin"></div>
+                            <div class="betSliderBtn betSlider12"></div>
+                            <div class="betSliderBtn betSlider34"></div>
+                            <div class="betSliderBtn betSliderPot"></div>
+                            <div class="betSliderBtn betSliderMax"></div>
+                            <div class="betSliderBg"></div>
+                            <input type="text" class="betSliderVal" value="99.99" />
+                            <div class="betSliderPos"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="footer">

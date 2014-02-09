@@ -2,9 +2,10 @@ var Logger = require('../common/logger');
 var pubSub = require('../common/pubsub')();
 var facebook = require('./facebook')();
 var User = require('./models/user');
-var cashRoomManager = require('./cashroommanager')();
+var lobbyManager = require('./lobbymanager')();
+var cashRoomManager = require('./cashroommanager')(); // Imported just to start it for now...
 
-pubSub.subscribe('auth', function(src, event, data, callback) {
+pubSub.subscribe('auth', function(event, data, src, callback) {
   if (event === 'fblogin') {
     console.log('auth:fblogin');
 
@@ -27,27 +28,6 @@ pubSub.subscribe('auth', function(src, event, data, callback) {
   }
 });
 
-setInterval(function() {
-  var roomData = {
-    cashGames: [],
-    tournys: [],
-    sitngos: []
-  };
-
-  for (var i = 0; i < cashRoomManager.rooms.length; ++i) {
-    var room = cashRoomManager.rooms[i];
-
-    roomData.cashGames.push({
-      id: room.id,
-      name: room.name,
-      seatCount: room.seatCount(),
-      seatedCount: room.seatedCount(),
-      smallBlind: room.currentBlinds(),
-      bigBlind: room.currentBlinds()*2
-    });
-  }
-
-  pubSub.publish('lobby', 'rooms', roomData);
-}, 15000);
+lobbyManager.start();
 
 Logger.info('Started backend service.');

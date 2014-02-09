@@ -1,12 +1,12 @@
-function TableSeat(seatIdx, seatCount) {
+function TableSeat(table, seatIdx, seatCount) {
+  this.table = table;
   this.seatIdx = seatIdx;
-  this.betStack = null;
   this.holeCards = [];
   this.balance = 0;
   this.betAmount = 0;
 
-  this.ui = new PlayerUiController(seatIdx, seatCount);
-  $('#playerPanels').append(this.ui.el);
+  //this.ui = new PlayerUiController(seatIdx, seatCount);
+  //$('.playerPanels').append(this.ui.el);
 
   this.ui.setCanSitHere(true);
   this.ui.setHasPlayer(false);

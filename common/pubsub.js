@@ -172,9 +172,9 @@ PubSubLink.prototype._route = function(channel, event, data, seqNo) {
     }
   } else if (channel === '$') {
     if (data.length < 2) {
-      this.parent._completeOp(event, null, data[0]);
+      this.parent._completeOp(this, event, null, data[0]);
     } else {
-      this.parent._completeOp(event, data[1], data[0]);
+      this.parent._completeOp(this, event, data[1], data[0]);
     }
   } else if (channel === '%') {
     var subscriptionIdx = this.subscriptions.indexOf(event);
@@ -360,7 +360,7 @@ PubSub.prototype.request = function(channel, event, data, callback, timeout) {
 
     var seqNo = this.seqNo++;
 
-    var invokeError = this._completeOp.bind(this, seqNo, true, null);
+    var invokeError = this._completeOp.bind(this, null, seqNo, true, null);
     var timer = setTimeout(invokeError, timeout);
     var message = [timer, callback, 0, channel, event, data];
 
@@ -379,7 +379,7 @@ PubSub.prototype._route = function(source, channel, event, data, callback) {
   }
 
   for (var i = 0; i < subscription.length; ++i) {
-    subscription[i](source, event, data, callback);
+    subscription[i](event, data, source, callback);
   }
   return true;
 };
@@ -402,7 +402,7 @@ PubSub.prototype._retransmitOp = function(seqNo) {
   }
 };
 
-PubSub.prototype._completeOp = function(seqNo, err, data) {
+PubSub.prototype._completeOp = function(source, seqNo, err, data) {
   if (!this.opHandlers[seqNo]) {
     return;
   }
@@ -412,7 +412,7 @@ PubSub.prototype._completeOp = function(seqNo, err, data) {
 
   clearTimeout(handler[0]);
   if (handler[1]) {
-    handler[1](err, data);
+    handler[1](err, data, source);
   }
 };
 

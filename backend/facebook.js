@@ -61,7 +61,7 @@ Facebook.prototype.validateUser = function(fbId, fbTkn, callback) {
   if (fbTkn === 'super_secret_debug_token') {
     process.nextTick(function() {
       callback(null, {
-        id: '601060001',
+        id: fbId,
         first_name: 'Bob',
         last_name: 'Franklin',
         gender: 'male',

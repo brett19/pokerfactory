@@ -16,11 +16,14 @@ User.findOrCreateFromFbUser = function(fbUser, callback) {
       return callback(Errors.dbGeneric());
     }
 
+    console.log(fbUser, rows);
+
     if (rows.length < 1) {
       var f = fbUser;
+      var initialBalance = 100000;
       db.query(
           'INSERT INTO users(fbId,balance,location,first_name,last_name,email,gender,locale,timezone,username) VALUES(?)',
-          [[f.id, f.balance, f.location, f.firstName, f.lastName, f.email, f.gender, f.locale, f.timezone, f.username]],
+          [[f.id, initialBalance, f.location, f.firstName, f.lastName, f.email, f.gender, f.locale, f.timezone, f.username]],
         function(err, res) {
           if (err) {
             Logger.warn(err);
@@ -29,7 +32,7 @@ User.findOrCreateFromFbUser = function(fbUser, callback) {
 
           var u = new User();
           u.id = res.insertId;
-          u.balance = f.balance;
+          u.balance = initialBalance;
           u.locale = f.locale;
           u.username = f.username;
           callback(null, u);

@@ -2,6 +2,7 @@ var Uuid = require('node-uuid');
 var Logger = require('./../common/logger');
 var pubSub = require('./../common/pubsub')();
 var poker = require('./pokersim/poker');
+var db = require('./database')();
 
 function userPublish(userId, event, data) {
   pubSub.publish('userevt_' + userId, event, data);
@@ -24,10 +25,10 @@ function RoomUser(room, userId) {
 }
 
 RoomUser.prototype.destroy = function() {
-  pubSub.unsubscribe('user_act' + this.userId, this.__handleUserEvent);
+  pubSub.unsubscribe('useract_' + this.userId, this.__handleUserEvent);
 }
 
-RoomUser.prototype._handleUserEvent = function(src, event, data) {
+RoomUser.prototype._handleUserEvent = function(event, data, src) {
   if (this.state === RoomUserState.DISCONNECTED) {
     console.warn('received unexpected event from RoomUser');
     return;
@@ -37,6 +38,7 @@ RoomUser.prototype._handleUserEvent = function(src, event, data) {
     this.state = RoomUserState.CONNECTED;
   } else if (event === 'disconnected') {
     this.state = RoomUserState.DISCONNECTED;
+    this.destroy();
   }
 };
 
@@ -78,29 +80,57 @@ function Room(type, name, tableOpts) {
   this._tableOn('player_bet', this.onTable_PlayerBet);
   this._tableOn('player_raised', this.onTable_PlayerRaised);
 
-  this._roomActHandler = function(src, event, data, callback) {
+  this._roomActHandler = function(event, data, src, callback) {
+    var userSeatIdx = -1;
+    if (data.userId !== undefined) {
+      userSeatIdx = this.usersSeatIdx(data.userId);
+    }
+
     if (event === 'join') {
       console.log('User Join!', data);
 
-      var userSeatIdx = this.usersSeatIdx(data.userId);
       var tableState = this.table.info(userSeatIdx);
-
       callback(null, {
         name: this.name,
         state: tableState
       });
     } else if (event === 'sitdown') {
-      console.log('User Sit!', data);
+      this.onUser_SitDown(data);
+    } else if (event === 'standup') {
+      this.onUser_StoodUp(data);
+    } else if (event === 'sitin') {
+      this.table.playerSitIn(userSeatIdx);
+    } else if (event === 'sitout') {
+      this.table.playerSitOut(userSeatIdx);
+    } else if (event === 'fold') {
+      this.table.playerFold(userSeatIdx);
+    } else if (event === 'check') {
+      this.table.playerCheck(userSeatIdx);
+    } else if (event === 'call') {
+      this.table.playerCall(userSeatIdx);
+    } else if (event === 'bet') {
+      this.table.playerBet(userSeatIdx, data.amount);
+    } else if (event === 'raise') {
+      this.table.playerRaise(userSeatIdx, data.amount);
+    } else if (event === 'chat') {
+      db.query('SELECT username FROM users WHERE id=?', [data.userId], function(err, rows) {
+        if (err) {
+          console.warn(err);
+          return;
+        }
+        if (rows.length !== 1) {
+          console.warn('could not find user sending message');
+          return;
+        }
 
-
+        this.roomPublish('tbl_chat', {
+          sender: rows[0].username,
+          msg: data.msg
+        });
+      }.bind(this));
     }
   }.bind(this);
   pubSub.subscribe('roomact_' + this.id, this._roomActHandler);
-
-  // For Testing!
-  setInterval(function() {
-    this.roomPublish('tbl_idle', {});
-  }.bind(this), 2500);
 }
 
 Room.prototype.destroy = function() {
@@ -131,7 +161,11 @@ Room.prototype.seatedCount = function() {
 
 Room.prototype.usersSeatIdx = function(userId) {
   for (var i = 0; i < this.seats.length; ++i) {
-    if (this.seats[i].userId === userId) {
+    var roomUser = this.seats[i];
+    if (!roomUser) {
+      continue;
+    }
+    if (roomUser.userId === userId) {
       return i;
     }
   }
@@ -144,10 +178,49 @@ Room.prototype.userIsSeated = function(userId) {
 
 
 
+Room.prototype.onUser_SitDown = function(data) {
+  if (this.userIsSeated(data.userId)) {
+    console.warn('already seated user tried to sit down');
+    return;
+  }
+
+  console.log('user_sitdown', data);
+
+  db.query('SELECT username FROM users WHERE id=?', [data.userId], function(err, rows) {
+    if (err) {
+      console.warn(err);
+      return;
+    }
+
+    if (rows.length < 1) {
+      console.warn('could not find user on sitdown');
+      return;
+    }
+
+    var userName = rows[0].username;
+
+    // Logic here is to remove after since playerSit can cause a hand start.
+    var roomUser = new RoomUser(this, data.userId);
+    this.seats[data.seatIdx] = roomUser;
+
+    var player = new poker.Player(userName, data.buyIn);
+    if (!this.table.playerSit(data.seatIdx, player)) {
+      this.seats[data.seatIdx] = null;
+    }
+  }.bind(this));
+};
+
+Room.prototype.onUser_StoodUp = function(data) {
+  var userSeatIdx = this.usersSeatIdx(data.userId);
+  if (this.table.playerStandUp(userSeatIdx)) {
+    this.seats[data.seatIdx] = null;
+  }
+};
 
 Room.prototype.onTable_PlayerSat = function(seatIdx) {
   this.roomPublish('tbl_playersat', {
     seatIdx: seatIdx,
+    userId: this.seats[seatIdx].userId,
     state: this.table.playerInfo(null, seatIdx)
   });
 };
@@ -215,11 +288,16 @@ Room.prototype.onTable_DealtRiver = function() {
 Room.prototype.onTable_DealtHands = function() {
   var hands = [];
   for (var i = 0; i < this.seatCount(); ++i) {
+    if (!this.table.seats[i]) {
+      hands.push(null);
+      continue;
+    }
+
     var holeCards = this.table.seats[i].holeCards;
     var user = this.seats[i];
 
     var hidyCards = [];
-    for (var j = 0; j < holeCards.length; ++i) {
+    for (var j = 0; j < holeCards.length; ++j) {
       hidyCards.push(-1);
     }
 

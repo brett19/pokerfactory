@@ -1,10 +1,11 @@
 var Logger = require('./../common/logger');
 var roomManager = require('./roommanager')();
+var lobbyManager = require('./lobbymanager')();
 
 function CashRoomManager() {
   this.rooms = [];
 
-  this.checkRooms();
+  setTimeout(this.checkRooms.bind(this), 1000);
 }
 
 CashRoomManager.prototype.findRoomById = function(id) {
@@ -22,7 +23,7 @@ CashRoomManager.prototype.checkRooms = function() {
     return;
   }
 
-  Logger.info('creating rooms');
+  console.log('creating rooms');
 
   var testRoom1 = roomManager.createRoom(0, 'Test Room 1/2', {
     seatCount: 10,
@@ -44,6 +45,8 @@ CashRoomManager.prototype.checkRooms = function() {
     blindsLevels: [[10, 2]]
   });
   this.rooms.push(testRoom3);
+
+  lobbyManager.cashRoomsChanged();
 };
 
 var cashRoomManager = new CashRoomManager();
